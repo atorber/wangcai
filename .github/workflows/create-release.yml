@@ -1,0 +1,49 @@
+name: Create Release (Auto Bump Patch)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve next available tag
+        id: next_tag
+        run: |
+          BASE_VERSION="$(awk '/^version:/{print $2}' pubspec.yaml | cut -d+ -f1)"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${BASE_VERSION}"
+
+          if [ -z "${MAJOR}" ] || [ -z "${MINOR}" ] || [ -z "${PATCH}" ]; then
+            echo "Failed to parse version from pubspec.yaml: ${BASE_VERSION}"
+            exit 1
+          fi
+
+          NEXT_PATCH="${PATCH}"
+          while true; do
+            CANDIDATE_TAG="v${MAJOR}.${MINOR}.${NEXT_PATCH}"
+            if git ls-remote --tags origin "refs/tags/${CANDIDATE_TAG}" | rg -q .; then
+              NEXT_PATCH="$((NEXT_PATCH + 1))"
+            else
+              break
+            fi
+          done
+
+          echo "tag=${CANDIDATE_TAG}" >> "${GITHUB_OUTPUT}"
+          echo "Resolved release tag: ${CANDIDATE_TAG}"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.next_tag.outputs.tag }}
+          target_commitish: main
+          generate_release_notes: true

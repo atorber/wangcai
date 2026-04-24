@@ -99,6 +99,16 @@
     flutter run
     ```
 
+## 下载与发布版本
+
+如果您希望直接下载已打包版本（如 APK / AAB），请前往 GitHub Release 页面：
+
+- [WangCai Releases](https://github.com/atorber/wangcai/releases)
+- 当前版本：[`v0.1.0`](https://github.com/atorber/wangcai/releases/tag/v0.1.0)
+
+发布建议使用 GitHub Actions 的 `Create Release (Auto Bump Patch)` 工作流。  
+该流程会读取 `pubspec.yaml` 中的版本号作为基准；若同名版本已发布，则自动将补丁位（最后一位）递增后再创建 Release（例如 `v0.1.0` 已存在时自动发布 `v0.1.1`）。
+
 ## 项目阶段总结
 
 截至当前阶段，旺财已完成从“可用原型”到“可日常使用”的核心能力建设，主要体现在：
