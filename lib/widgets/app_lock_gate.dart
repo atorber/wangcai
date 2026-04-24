@@ -19,13 +19,14 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
   final LocalAuthentication _localAuth = LocalAuthentication();
   bool _unlocked = false;
   bool _authInProgress = false;
+  bool _autoUnlockRequested = false;
+  String? _lockMessage;
   DateTime? _pausedAt;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _tryUnlockIfNeeded());
   }
 
   @override
@@ -51,6 +52,8 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
       if (shouldRelock) {
         setState(() {
           _unlocked = false;
+          _autoUnlockRequested = false;
+          _lockMessage = null;
         });
       }
       _tryUnlockIfNeeded();
@@ -65,7 +68,10 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
     if (!security.loaded || !security.appLockEnabled || _unlocked) {
       return;
     }
-    _authInProgress = true;
+    setState(() {
+      _authInProgress = true;
+      _lockMessage = null;
+    });
     try {
       final unlocked = await _authenticate(security);
       if (!mounted) {
@@ -74,120 +80,59 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
       if (unlocked) {
         setState(() {
           _unlocked = true;
+          _lockMessage = null;
+        });
+      } else if (_lockMessage == null) {
+        setState(() {
+          _lockMessage = '未完成生物识别，请重试';
         });
       }
     } finally {
-      _authInProgress = false;
+      if (mounted) {
+        setState(() {
+          _authInProgress = false;
+        });
+      } else {
+        _authInProgress = false;
+      }
     }
   }
 
   Future<bool> _authenticate(SecurityProvider security) async {
-    final allowBiometric = security.biometricEnabled;
-    if (allowBiometric) {
-      try {
-        final canCheck = await _localAuth.canCheckBiometrics;
-        final isSupported = await _localAuth.isDeviceSupported();
-        if (canCheck || isSupported) {
-          final ok = await _localAuth.authenticate(
-            localizedReason: '验证身份以访问旺财',
-            options: const AuthenticationOptions(
-              biometricOnly: false,
-              stickyAuth: true,
-              sensitiveTransaction: true,
-            ),
-          );
-          if (ok) {
-            return true;
-          }
-        }
-      } catch (_) {
-        // 生物识别不可用时回落 PIN。
-      }
-    }
-    if (!mounted) {
+    if (!security.biometricEnabled) {
       return false;
     }
-    return _showPinUnlockDialog(security);
+    return _authenticateWithBiometric();
   }
 
-  Future<bool> _showPinUnlockDialog(SecurityProvider security) async {
-    if (!mounted) {
+  Future<bool> _authenticateWithBiometric() async {
+    try {
+      final availableBiometrics = await _localAuth.getAvailableBiometrics();
+      if (availableBiometrics.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _lockMessage = '当前设备未检测到可用的面容或指纹，请先在系统设置中配置';
+          });
+        }
+        return false;
+      }
+      return await _localAuth.authenticate(
+        localizedReason: '验证身份以访问旺财',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+          sensitiveTransaction: true,
+        ),
+      );
+    } catch (error) {
+      debugPrint('Biometric authentication failed: $error');
+      if (mounted) {
+        setState(() {
+          _lockMessage = '无法调起系统生物识别，请检查系统权限或设备设置';
+        });
+      }
       return false;
     }
-    if (!security.hasPinCode) {
-      return true;
-    }
-    final controller = TextEditingController();
-    String? errorText;
-    bool unlocked = false;
-    while (!unlocked && mounted) {
-      final result = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          return StatefulBuilder(
-            builder: (dialogContext, setDialogState) {
-              return AlertDialog(
-                title: const Text('输入 PIN 解锁'),
-                content: TextField(
-                  controller: controller,
-                  autofocus: true,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  obscureText: true,
-                  decoration: InputDecoration(
-                    hintText: security.hasPinCode ? '请输入 PIN 码' : '请先在设置中配置 PIN',
-                    errorText: errorText,
-                  ),
-                  onSubmitted: (_) {
-                    final input = controller.text.trim();
-                    if (security.verifyPinCode(input)) {
-                      Navigator.of(dialogContext).pop(true);
-                    } else {
-                      setDialogState(() {
-                        errorText = 'PIN 不正确';
-                      });
-                    }
-                  },
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: security.biometricEnabled
-                        ? () => Navigator.of(dialogContext).pop(false)
-                        : null,
-                    child: const Text('重试生物识别'),
-                  ),
-                  FilledButton(
-                    onPressed: security.hasPinCode
-                        ? () {
-                            final input = controller.text.trim();
-                            if (security.verifyPinCode(input)) {
-                              Navigator.of(dialogContext).pop(true);
-                            } else {
-                              setDialogState(() {
-                                errorText = 'PIN 不正确';
-                              });
-                            }
-                          }
-                        : null,
-                    child: const Text('解锁'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
-      if (result == true) {
-        unlocked = true;
-      } else if (security.biometricEnabled) {
-        return _authenticate(security);
-      } else {
-        errorText = '请先配置 PIN 码';
-      }
-    }
-    controller.dispose();
-    return unlocked;
   }
 
   @override
@@ -205,6 +150,8 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
               if (mounted) {
                 setState(() {
                   _unlocked = false;
+                  _autoUnlockRequested = false;
+                  _lockMessage = null;
                 });
               }
             });
@@ -212,13 +159,57 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
           return widget.child;
         }
         if (!_unlocked) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _tryUnlockIfNeeded());
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
+          if (!_autoUnlockRequested) {
+            _autoUnlockRequested = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) => _tryUnlockIfNeeded());
+          }
+          return _buildLockedScreen();
         }
         return widget.child;
       },
+    );
+  }
+
+  Widget _buildLockedScreen() {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.lock_outline, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                '旺财已锁定',
+                style: Theme.of(context).textTheme.displayMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '请使用面容或指纹解锁',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              if (_lockMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _lockMessage!,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                ),
+              ],
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _authInProgress ? null : _tryUnlockIfNeeded,
+                icon: const Icon(Icons.lock_open),
+                label: Text(_authInProgress ? '验证中...' : '解锁'),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

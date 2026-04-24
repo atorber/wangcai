@@ -298,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: _buildSettingsItem(
             context,
             Icons.lock,
-            '安全 (面容ID/密码)',
+            '安全 (面容ID/指纹)',
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -784,7 +784,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await securityProvider.setAppLockEnabled(false);
     await securityProvider.setBiometricEnabled(false);
     await securityProvider.setPrivacyModeEnabled(false);
-    await securityProvider.setPinCode('');
     await appSettingsProvider.setThemeMode(ThemeMode.system);
     await appSettingsProvider.updateProfile(
       name: '旺财',

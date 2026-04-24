@@ -20,13 +20,14 @@ class PrivacyAmountText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final privacyModeEnabled = context.select<SecurityProvider, bool>(
-      (provider) => provider.privacyModeEnabled,
+    return Consumer<SecurityProvider>(
+      builder: (context, security, _) {
+        final symbol = sign ?? '';
+        final text = security.privacyModeEnabled
+            ? '$symbol$prefix****'
+            : '$symbol$prefix${amount.toStringAsFixed(decimalDigits)}';
+        return Text(text, style: style);
+      },
     );
-    final symbol = sign ?? '';
-    final text = privacyModeEnabled
-        ? '$symbol$prefix****'
-        : '$symbol$prefix${amount.toStringAsFixed(decimalDigits)}';
-    return Text(text, style: style);
   }
 }

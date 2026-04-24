@@ -257,7 +257,13 @@ class _WebDavBackupStatusScreenState extends State<WebDavBackupStatusScreen> {
     final transactionProvider = context.read<TransactionProvider>();
     setState(() => _syncing = true);
     try {
-      final remoteMeta = await WebDavBackupService.fetchRemoteBundleMeta(_config!);
+      AppBackupBundle? remoteMeta;
+      try {
+        remoteMeta = await WebDavBackupService.fetchRemoteBundleMeta(_config!);
+      } catch (_) {
+        // 远端元信息只用于覆盖前提示，读取失败不应阻止首次备份。
+        remoteMeta = null;
+      }
       final now = DateTime.now();
       if (remoteMeta != null && remoteMeta.exportedAt.isAfter(now)) {
         final shouldContinue = await _confirmRiskyAction(

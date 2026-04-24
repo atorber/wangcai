@@ -699,9 +699,15 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
       return;
     }
     String selectedCategoryId = categoryProvider.categories.first.id;
-    final controller = TextEditingController();
+    String budgetInput =
+        budgetProvider
+            .findByCategoryId(selectedCategoryId)
+            ?.monthlyLimit
+            .toStringAsFixed(2) ??
+        '';
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.surfaceContainerLowest,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -709,106 +715,113 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setLocalState) {
-            final currentBudget = budgetProvider.findByCategoryId(
-              selectedCategoryId,
-            );
-            controller.text = controller.text.isEmpty && currentBudget != null
-                ? currentBudget.monthlyLimit.toStringAsFixed(2)
-                : controller.text;
+            final keyboardBottom = MediaQuery.viewInsetsOf(context).bottom;
             return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '设置分类预算',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey(selectedCategoryId),
-                      initialValue: selectedCategoryId,
-                      items: categoryProvider.categories
-                          .map(
-                            (item) => DropdownMenuItem<String>(
-                              value: item.id,
-                              child: Text(item.label),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (value) {
-                        if (value == null) {
-                          return;
-                        }
-                        setLocalState(() {
-                          selectedCategoryId = value;
-                          final budget = budgetProvider.findByCategoryId(value);
-                          controller.text =
-                              budget?.monthlyLimit.toStringAsFixed(2) ?? '';
-                        });
-                      },
-                      decoration: const InputDecoration(labelText: '分类'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: controller,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      decoration: const InputDecoration(
-                        labelText: '月预算',
-                        hintText: '例如 2000',
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+              child: AnimatedPadding(
+                duration: const Duration(milliseconds: 120),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.only(bottom: keyboardBottom),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(
-                          child: OutlinedButton(
-                            onPressed: () async {
-                              await budgetProvider.removeBudget(
-                                selectedCategoryId,
+                        Text(
+                          '设置分类预算',
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 12),
+                        DropdownButtonFormField<String>(
+                          key: ValueKey(selectedCategoryId),
+                          initialValue: selectedCategoryId,
+                          items: categoryProvider.categories
+                              .map(
+                                (item) => DropdownMenuItem<String>(
+                                  value: item.id,
+                                  child: Text(item.label),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: (value) {
+                            if (value == null) {
+                              return;
+                            }
+                            setLocalState(() {
+                              selectedCategoryId = value;
+                              final budget = budgetProvider.findByCategoryId(
+                                value,
                               );
-                              if (sheetContext.mounted) {
-                                Navigator.of(sheetContext).pop();
-                              }
-                            },
-                            child: const Text('删除预算'),
+                              budgetInput =
+                                  budget?.monthlyLimit.toStringAsFixed(2) ?? '';
+                            });
+                          },
+                          decoration: const InputDecoration(labelText: '分类'),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          key: ValueKey(selectedCategoryId),
+                          initialValue: budgetInput,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          onChanged: (value) {
+                            budgetInput = value.trim();
+                          },
+                          decoration: const InputDecoration(
+                            labelText: '月预算',
+                            hintText: '例如 2000',
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: () async {
-                              final value = double.tryParse(
-                                controller.text.trim(),
-                              );
-                              if (value == null || value <= 0) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('请输入大于 0 的预算金额'),
-                                  ),
-                                );
-                                return;
-                              }
-                              await budgetProvider.upsertBudget(
-                                categoryId: selectedCategoryId,
-                                monthlyLimit: value,
-                              );
-                              if (sheetContext.mounted) {
-                                Navigator.of(sheetContext).pop();
-                              }
-                            },
-                            child: const Text('保存'),
-                          ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: () async {
+                                  await budgetProvider.removeBudget(
+                                    selectedCategoryId,
+                                  );
+                                  if (sheetContext.mounted) {
+                                    Navigator.of(sheetContext).pop();
+                                  }
+                                },
+                                child: const Text('删除预算'),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: FilledButton(
+                                onPressed: () async {
+                                  final value = double.tryParse(
+                                    budgetInput,
+                                  );
+                                  if (value == null || value <= 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('请输入大于 0 的预算金额'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  await budgetProvider.upsertBudget(
+                                    categoryId: selectedCategoryId,
+                                    monthlyLimit: value,
+                                  );
+                                  if (sheetContext.mounted) {
+                                    Navigator.of(sheetContext).pop();
+                                  }
+                                },
+                                child: const Text('保存'),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -816,7 +829,6 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
         );
       },
     );
-    controller.dispose();
   }
 
   Widget _buildInsightsSection(StatsSnapshot snapshot) {
@@ -969,9 +981,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     double amount, {
     int decimalDigits = 2,
   }) {
-    final enabled = context.select<SecurityProvider, bool>(
-      (provider) => provider.privacyModeEnabled,
-    );
+    final enabled = context.read<SecurityProvider>().privacyModeEnabled;
     if (enabled) {
       return '¥****';
     }

@@ -141,7 +141,9 @@ class WebDavBackupService {
       ),
       errorPrefix: '读取远端备份信息失败',
     );
-    if (response.statusCode == 404) {
+    if (response.statusCode == 404 ||
+        response.statusCode == 405 ||
+        response.statusCode == 409) {
       return null;
     }
     _ensureSuccess(
@@ -164,14 +166,29 @@ class WebDavBackupService {
   }
 
   static Future<void> _ensureRemoteDirectoryExists(WebDavBackupConfig config) async {
-    final target = _buildFileUri(config);
-    final path = target.path;
-    final lastSlash = path.lastIndexOf('/');
-    if (lastSlash <= 0) {
+    final remotePath = config.remotePath.startsWith('/')
+        ? config.remotePath.substring(1)
+        : config.remotePath;
+    final segments = remotePath
+        .split('/')
+        .where((segment) => segment.trim().isNotEmpty)
+        .toList(growable: false);
+    if (segments.length <= 1) {
       return;
     }
-    final dirPath = path.substring(0, lastSlash);
-    final dirUri = target.replace(path: dirPath);
+    final baseUri = Uri.parse(config.serverUrl);
+    final basePath = baseUri.path.endsWith('/')
+        ? baseUri.path.substring(0, baseUri.path.length - 1)
+        : baseUri.path;
+    var currentPath = basePath;
+    for (final segment in segments.take(segments.length - 1)) {
+      currentPath = '$currentPath/$segment';
+      final dirUri = baseUri.replace(path: currentPath);
+      await _mkcol(config, dirUri);
+    }
+  }
+
+  static Future<void> _mkcol(WebDavBackupConfig config, Uri dirUri) async {
     final response = await _guardRequest(
       () async {
         final client = http.Client();
@@ -243,6 +260,8 @@ class WebDavBackupService {
       message = '$defaultMessage：认证失败，请检查用户名或密码';
     } else if (code == 404) {
       message = '$defaultMessage：远端文件不存在，请先执行备份';
+    } else if (code == 409) {
+      message = '$defaultMessage：远端路径冲突，请检查备份路径的上级目录是否可写';
     } else if (code >= 500) {
       message = '$defaultMessage：服务器异常（$code）';
     } else {

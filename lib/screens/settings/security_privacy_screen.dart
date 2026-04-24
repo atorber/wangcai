@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:finance_app/providers/security_provider.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 
 class SecurityPrivacyScreen extends StatelessWidget {
@@ -36,41 +37,45 @@ class SecurityPrivacyScreen extends StatelessWidget {
                   SwitchListTile(
                     value: securityProvider.appLockEnabled,
                     onChanged: (value) async {
-                      if (value && !securityProvider.hasPinCode) {
-                        await _showPinDialog(context, securityProvider);
-                        if (!securityProvider.hasPinCode) {
+                      if (value) {
+                        final canUseBiometrics = await _canUseBiometrics();
+                        if (!canUseBiometrics) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('请先设置 PIN 码，再启用应用锁')),
+                              const SnackBar(
+                                content: Text('请先在系统中设置面容或指纹'),
+                              ),
                             );
                           }
                           return;
+                        }
+                        if (!securityProvider.biometricEnabled) {
+                          await securityProvider.setBiometricEnabled(true);
                         }
                       }
                       await securityProvider.setAppLockEnabled(value);
                     },
                     title: const Text('启用应用锁'),
-                    subtitle: const Text('进入应用时需要身份验证'),
+                    subtitle: const Text('使用面容或指纹解锁'),
                   ),
                   const Divider(height: 1),
                   SwitchListTile(
                     value: securityProvider.biometricEnabled,
                     onChanged: securityProvider.appLockEnabled
                         ? (value) async {
+                            if (!value) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('应用锁需要保留系统解锁'),
+                                ),
+                              );
+                              return;
+                            }
                             await securityProvider.setBiometricEnabled(value);
                           }
                         : null,
-                    title: const Text('面容/指纹解锁'),
-                    subtitle: const Text('优先使用生物识别快速解锁'),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    title: const Text('PIN 码'),
-                    subtitle: Text(
-                      securityProvider.hasPinCode ? '已设置' : '未设置',
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showPinDialog(context, securityProvider),
+                    title: const Text('生物识别解锁'),
+                    subtitle: const Text('仅使用系统面容或指纹'),
                   ),
                 ],
               ),
@@ -90,7 +95,7 @@ class SecurityPrivacyScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                '说明：启用应用锁后，冷启动和回到前台都需要进行身份验证。',
+                '说明：启用应用锁后，冷启动和回到前台仅调用系统生物识别，不提供其他解锁方式。',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),
@@ -119,54 +124,13 @@ class SecurityPrivacyScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showPinDialog(
-    BuildContext context,
-    SecurityProvider securityProvider,
-  ) async {
-    final controller = TextEditingController();
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('设置 PIN 码'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          obscureText: true,
-          decoration: const InputDecoration(
-            hintText: '请输入 4-6 位数字',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-
-    if (saved == true) {
-      final pin = controller.text.trim();
-      if (pin.length < 4 || pin.length > 6 || int.tryParse(pin) == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('PIN 码需为 4-6 位数字')),
-          );
-        }
-      } else {
-        await securityProvider.setPinCode(pin);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('PIN 码已保存')),
-          );
-        }
-      }
+  Future<bool> _canUseBiometrics() async {
+    final localAuth = LocalAuthentication();
+    try {
+      final availableBiometrics = await localAuth.getAvailableBiometrics();
+      return availableBiometrics.isNotEmpty;
+    } catch (_) {
+      return false;
     }
-    controller.dispose();
   }
 }
