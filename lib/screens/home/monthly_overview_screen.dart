@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:finance_app/models/transaction_record.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:provider/provider.dart';
 
 class MonthlyOverviewScreen extends StatelessWidget {
   const MonthlyOverviewScreen({super.key});
@@ -52,31 +55,36 @@ class MonthlyOverviewScreen extends StatelessWidget {
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '9月概览',
-              style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    color: AppColors.onSurface,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            _buildOverviewCard(context),
-            const SizedBox(height: 32),
-            _buildSpeedIndicator(context),
-            const SizedBox(height: 32),
-            _buildRecentActivity(context),
-            const SizedBox(height: 32),
-            _buildGoalTracking(context),
-            const SizedBox(height: 80), // Padding for bottom nav
-          ],
+        child: Consumer<TransactionProvider>(
+          builder: (context, transactionProvider, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '9月概览',
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      color: AppColors.onSurface,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              _buildOverviewCard(context, transactionProvider.transactions),
+              const SizedBox(height: 32),
+              _buildSpeedIndicator(context),
+              const SizedBox(height: 32),
+              _buildRecentActivity(context, transactionProvider.transactions),
+              const SizedBox(height: 32),
+              _buildGoalTracking(context),
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildOverviewCard(BuildContext context) {
+  Widget _buildOverviewCard(BuildContext context, List<TransactionRecord> transactions) {
+    final income = _monthlyTotal(transactions, isIncome: true);
+    final expense = _monthlyTotal(transactions, isIncome: false);
+    final totalAssets = income - expense;
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -101,14 +109,14 @@ class MonthlyOverviewScreen extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '¥12,450.00',
+            '¥${totalAssets.toStringAsFixed(2)}',
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
                   color: AppColors.primary,
                 ),
           ),
           const SizedBox(height: 24),
           Container(
-            padding: const EdgeInsets.top(24),
+            padding: const EdgeInsets.only(top: 24),
             decoration: const BoxDecoration(
               border: Border(
                 top: BorderSide(color: AppColors.surfaceContainer),
@@ -128,7 +136,7 @@ class MonthlyOverviewScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '+¥5,200.00',
+                        '+¥${income.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: AppColors.primaryContainer,
@@ -149,7 +157,7 @@ class MonthlyOverviewScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '-¥2,840.00',
+                        '-¥${expense.toStringAsFixed(2)}',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w600,
                               color: AppColors.onSurface,
@@ -240,7 +248,8 @@ class MonthlyOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentActivity(BuildContext context) {
+  Widget _buildRecentActivity(BuildContext context, List<TransactionRecord> transactions) {
+    final recentTransactions = transactions.take(4).toList(growable: false);
     return Column(
       children: [
         Row(
@@ -265,45 +274,38 @@ class MonthlyOverviewScreen extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        _buildTransactionItem(
-          context,
-          icon: Icons.shopping_bag,
-          bgColor: AppColors.surfaceContainer,
-          title: '苹果商店',
-          subtitle: '电子产品 • 下午 2:45',
-          amount: '-¥999.00',
-          amountColor: AppColors.onSurface,
-        ),
-        _buildDivider(),
-        _buildTransactionItem(
-          context,
-          icon: Icons.payments,
-          bgColor: AppColors.primaryFixed,
-          title: '工资入账',
-          subtitle: '收入 • 上午 9:00',
-          amount: '+¥4,500.00',
-          amountColor: AppColors.primaryContainer,
-        ),
-        _buildDivider(),
-        _buildTransactionItem(
-          context,
-          icon: Icons.restaurant,
-          bgColor: AppColors.surfaceContainer,
-          title: '绿意餐厅',
-          subtitle: '餐饮 • 昨天',
-          amount: '-¥42.50',
-          amountColor: AppColors.onSurface,
-        ),
-        _buildDivider(),
-        _buildTransactionItem(
-          context,
-          icon: Icons.directions_car,
-          bgColor: AppColors.surfaceContainer,
-          title: '优步行程',
-          subtitle: '交通 • 昨天',
-          amount: '-¥18.20',
-          amountColor: AppColors.onSurface,
-        ),
+        if (recentTransactions.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '暂无账单，点击底部“添加”开始记账',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+            ),
+          ),
+        for (int i = 0; i < recentTransactions.length; i++) ...[
+          _buildTransactionItem(
+            context,
+            icon: _iconForRecord(recentTransactions[i]),
+            bgColor: recentTransactions[i].type == TransactionType.income
+                ? AppColors.primaryFixed
+                : AppColors.surfaceContainer,
+            title: _titleForRecord(recentTransactions[i]),
+            subtitle: _buildSubtitle(recentTransactions[i]),
+            amount: _buildAmount(recentTransactions[i]),
+            amountColor: recentTransactions[i].type == TransactionType.income
+                ? AppColors.primaryContainer
+                : AppColors.onSurface,
+          ),
+          if (i != recentTransactions.length - 1) _buildDivider(),
+        ],
       ],
     );
   }
@@ -439,5 +441,85 @@ class MonthlyOverviewScreen extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  double _monthlyTotal(List<TransactionRecord> transactions, {required bool isIncome}) {
+    return transactions.fold(0, (sum, item) {
+      final match = isIncome
+          ? item.type == TransactionType.income || item.type == TransactionType.borrow
+          : item.type == TransactionType.expense || item.type == TransactionType.lend;
+      return match ? sum + item.amount : sum;
+    });
+  }
+
+  String _buildAmount(TransactionRecord record) {
+    final isIncome = record.type == TransactionType.income || record.type == TransactionType.borrow;
+    final sign = isIncome ? '+' : '-';
+    return '$sign¥${record.amount.toStringAsFixed(2)}';
+  }
+
+  String _buildSubtitle(TransactionRecord record) {
+    final date = record.date;
+    final datePart =
+        '${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final accountPart = ' • ${record.accountName}';
+    final relationPart = switch (record.type) {
+      TransactionType.transfer =>
+        ' • 转入${record.transferAccountName ?? '未选择账户'}',
+      TransactionType.lend || TransactionType.borrow =>
+        ' • ${record.lenderName ?? '未选择借贷人'}',
+      _ => '',
+    };
+    final note = record.note.isNotEmpty ? ' • ${record.note}' : '';
+    return '$datePart$accountPart$relationPart$note';
+  }
+
+  String _titleForRecord(TransactionRecord record) {
+    switch (record.type) {
+      case TransactionType.transfer:
+        return '转账';
+      case TransactionType.lend:
+        return '借出';
+      case TransactionType.borrow:
+        return '借入';
+      case TransactionType.expense:
+      case TransactionType.income:
+        return record.category;
+    }
+  }
+
+  IconData _iconForRecord(TransactionRecord record) {
+    switch (record.type) {
+      case TransactionType.transfer:
+        return Icons.swap_horiz;
+      case TransactionType.lend:
+        return Icons.north_east;
+      case TransactionType.borrow:
+        return Icons.south_west;
+      case TransactionType.expense:
+      case TransactionType.income:
+        return _iconForCategory(record.category);
+    }
+  }
+
+  IconData _iconForCategory(String category) {
+    switch (category) {
+      case '餐饮':
+        return Icons.restaurant;
+      case '交通':
+        return Icons.directions_car;
+      case '购物':
+        return Icons.shopping_bag;
+      case '电影':
+        return Icons.confirmation_number;
+      case '医疗':
+        return Icons.medical_services;
+      case '杂货':
+        return Icons.local_grocery_store;
+      case '账单':
+        return Icons.bolt;
+      default:
+        return Icons.grid_view;
+    }
   }
 }

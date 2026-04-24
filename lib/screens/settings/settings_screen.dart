@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:finance_app/screens/settings/category_management_screen.dart';
+import 'package:finance_app/screens/settings/security_privacy_screen.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/screens/settings/github_sync_setup_screen.dart' as finance_sync_setup;
 
@@ -174,9 +176,18 @@ class SettingsScreen extends StatelessWidget {
           ),
           child: Column(
             children: [
-              _buildSettingsItem(context, Icons.account_balance_wallet, '账户管理'),
-              _buildDivider(),
-              _buildSettingsItem(context, Icons.category, '分类管理'),
+              _buildSettingsItem(
+                context,
+                Icons.category,
+                '分类管理',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CategoryManagementScreen(),
+                    ),
+                  );
+                },
+              ),
               _buildDivider(),
               _buildSettingsItem(context, Icons.ios_share, '导出数据'),
               _buildDivider(),
@@ -244,7 +255,18 @@ class SettingsScreen extends StatelessWidget {
               )
             ],
           ),
-          child: _buildSettingsItem(context, Icons.lock, '安全 (面容ID/密码)'),
+          child: _buildSettingsItem(
+            context,
+            Icons.lock,
+            '安全 (面容ID/密码)',
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const SecurityPrivacyScreen(),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );

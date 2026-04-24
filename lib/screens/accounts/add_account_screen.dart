@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:finance_app/models/account.dart';
+import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:provider/provider.dart';
 
 class AddAccountScreen extends StatefulWidget {
   const AddAccountScreen({super.key});
@@ -10,17 +13,28 @@ class AddAccountScreen extends StatefulWidget {
 
 class _AddAccountScreenState extends State<AddAccountScreen> {
   int _selectedTypeIndex = 0;
-  final List<Map<String, dynamic>> _accountTypes = [
-    {'icon': Icons.credit_card, 'label': '储蓄卡'},
-    {'icon': Icons.credit_score, 'label': '信用卡'},
-    {'icon': Icons.account_balance_wallet, 'label': '支付宝'},
-    {'icon': Icons.chat, 'label': '微信支付'},
-    {'icon': Icons.payments, 'label': '现金'},
-    {'icon': Icons.more_horiz, 'label': '其他'},
+  final TextEditingController _balanceController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final List<String> _accountTypeKeys = const [
+    'debitCard',
+    'creditCard',
+    'alipay',
+    'wechatPay',
+    'cash',
+    'other',
+    'lender',
   ];
 
   @override
+  void dispose() {
+    _balanceController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isLenderType = _selectedTypeKey == 'lender';
     return Scaffold(
       backgroundColor: AppColors.surfaceBright,
       appBar: AppBar(
@@ -44,8 +58,10 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
         child: Column(
           children: [
-            _buildInitialBalanceSection(),
-            const SizedBox(height: 32),
+            if (!isLenderType) ...[
+              _buildInitialBalanceSection(),
+              const SizedBox(height: 32),
+            ],
             _buildFormCard(),
             const SizedBox(height: 24),
             _buildActionButton(),
@@ -84,6 +100,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
             SizedBox(
               width: 200,
               child: TextField(
+                controller: _balanceController,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displayLarge?.copyWith(
@@ -155,6 +172,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
             border: Border.all(color: AppColors.outlineVariant),
           ),
           child: TextField(
+            controller: _nameController,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: AppColors.onBackground,
                 ),
@@ -192,9 +210,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
             crossAxisSpacing: 16,
             childAspectRatio: 2.2,
           ),
-          itemCount: _accountTypes.length,
+          itemCount: _accountTypeKeys.length,
           itemBuilder: (context, index) {
-            final type = _accountTypes[index];
+            final accountTypeKey = _accountTypeKeys[index];
             final isSelected = _selectedTypeIndex == index;
             return GestureDetector(
               onTap: () {
@@ -215,13 +233,13 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      type['icon'] as IconData,
+                      _iconForType(accountTypeKey),
                       color: isSelected ? AppColors.onPrimaryContainer : AppColors.onSurfaceVariant,
                       size: 20,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      type['label'] as String,
+                      _labelForType(accountTypeKey),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                             color: isSelected ? AppColors.onPrimaryContainer : AppColors.onSurface,
                           ),
@@ -238,7 +256,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
 
   Widget _buildActionButton() {
     return ElevatedButton(
-      onPressed: () {},
+      onPressed: _submit,
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
@@ -264,5 +282,98 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
         ],
       ),
     );
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入账户名称')),
+      );
+      return;
+    }
+
+    final balanceText = _balanceController.text.trim();
+    final balance = balanceText.isEmpty ? 0.0 : double.tryParse(balanceText);
+    if (balance == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入合法金额')),
+      );
+      return;
+    }
+
+    if (_selectedTypeKey == 'lender') {
+      context.read<AccountProvider>().addLender(name);
+    } else {
+      context.read<AccountProvider>().addAccount(
+            name: name,
+            type: _accountTypeFromKey(_selectedTypeKey),
+            balance: balance,
+          );
+    }
+
+    Navigator.of(context).pop(true);
+  }
+
+  String get _selectedTypeKey => _accountTypeKeys[_selectedTypeIndex];
+
+  String _labelForType(String typeKey) {
+    switch (typeKey) {
+      case 'debitCard':
+        return '储蓄卡';
+      case 'creditCard':
+        return '信用卡';
+      case 'alipay':
+        return '支付宝';
+      case 'wechatPay':
+        return '微信支付';
+      case 'cash':
+        return '现金';
+      case 'other':
+        return '其他';
+      case 'lender':
+        return '借贷人';
+      default:
+        return '其他';
+    }
+  }
+
+  IconData _iconForType(String typeKey) {
+    switch (typeKey) {
+      case 'debitCard':
+        return Icons.credit_card;
+      case 'creditCard':
+        return Icons.credit_score;
+      case 'alipay':
+        return Icons.account_balance_wallet;
+      case 'wechatPay':
+        return Icons.chat;
+      case 'cash':
+        return Icons.payments;
+      case 'other':
+        return Icons.more_horiz;
+      case 'lender':
+        return Icons.person_outline;
+      default:
+        return Icons.more_horiz;
+    }
+  }
+
+  AccountType _accountTypeFromKey(String typeKey) {
+    switch (typeKey) {
+      case 'debitCard':
+        return AccountType.debitCard;
+      case 'creditCard':
+        return AccountType.creditCard;
+      case 'alipay':
+        return AccountType.alipay;
+      case 'wechatPay':
+        return AccountType.wechatPay;
+      case 'cash':
+        return AccountType.cash;
+      case 'other':
+      default:
+        return AccountType.other;
+    }
   }
 }

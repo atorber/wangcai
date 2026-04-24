@@ -1,9 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:finance_app/models/github_sync_config.dart';
+import 'package:finance_app/services/github_sync_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
-import 'package:finance_app/screens/settings/github_sync_settings_screen.dart' as finance_sync_settings;
+import 'package:finance_app/screens/settings/github_sync_status_screen.dart' as finance_sync_status;
 
-class GithubSyncSetupScreen extends StatelessWidget {
+class GithubSyncSetupScreen extends StatefulWidget {
   const GithubSyncSetupScreen({super.key});
+
+  @override
+  State<GithubSyncSetupScreen> createState() => _GithubSyncSetupScreenState();
+}
+
+class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
+  final _tokenController = TextEditingController();
+  final _ownerController = TextEditingController();
+  final _repoController = TextEditingController();
+  final _pathController = TextEditingController(text: 'wangcai/records.json');
+  final _branchController = TextEditingController(text: 'main');
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig();
+  }
+
+  @override
+  void dispose() {
+    _tokenController.dispose();
+    _ownerController.dispose();
+    _repoController.dispose();
+    _pathController.dispose();
+    _branchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +72,9 @@ class GithubSyncSetupScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SafeArea(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 32.0),
           child: Column(
@@ -73,14 +105,14 @@ class GithubSyncSetupScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          '绑定 GitHub',
+          '配置 GitHub 同步',
           style: Theme.of(context).textTheme.displayLarge?.copyWith(
                 color: AppColors.onBackground,
               ),
         ),
         const SizedBox(height: 8),
         Text(
-          '请输入您的 GitHub Personal Access Token 以启用云端同步',
+          '填写 PAT 和仓库信息。后续可在状态页执行上传或下载。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.onSurfaceVariant,
                 height: 1.5,
@@ -116,6 +148,7 @@ class GithubSyncSetupScreen extends StatelessWidget {
               ],
             ),
             child: TextField(
+              controller: _tokenController,
               obscureText: true,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurface,
@@ -134,6 +167,14 @@ class GithubSyncSetupScreen extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          _buildInputField(context, label: '仓库所有者', hint: '例如: your-github-id', controller: _ownerController),
+          const SizedBox(height: 12),
+          _buildInputField(context, label: '仓库名', hint: '例如: finance-backup', controller: _repoController),
+          const SizedBox(height: 12),
+          _buildInputField(context, label: '文件路径', hint: '例如: wangcai/records.json', controller: _pathController),
+          const SizedBox(height: 12),
+          _buildInputField(context, label: '分支', hint: 'main', controller: _branchController),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -158,13 +199,7 @@ class GithubSyncSetupScreen extends StatelessWidget {
           ),
           const Spacer(),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const finance_sync_settings.GithubSyncSettingsScreen(),
-                ),
-              );
-            },
+            onPressed: _saveAndNext,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: AppColors.onPrimary,
@@ -179,7 +214,7 @@ class GithubSyncSetupScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '验证并连接',
+                  '保存并前往同步',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: AppColors.onPrimary,
                       ),
@@ -190,6 +225,82 @@ class GithubSyncSetupScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInputField(
+    BuildContext context, {
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.onSurface,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.outlineVariant),
+          ),
+          child: TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: hint,
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _loadConfig() async {
+    final config = await GithubSyncService.loadConfig();
+    if (config != null) {
+      _tokenController.text = config.token;
+      _ownerController.text = config.owner;
+      _repoController.text = config.repo;
+      _pathController.text = config.path;
+      _branchController.text = config.branch;
+    }
+    if (mounted) {
+      setState(() {
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _saveAndNext() async {
+    final config = GithubSyncConfig(
+      token: _tokenController.text.trim(),
+      owner: _ownerController.text.trim(),
+      repo: _repoController.text.trim(),
+      path: _pathController.text.trim(),
+      branch: _branchController.text.trim().isEmpty ? 'main' : _branchController.text.trim(),
+    );
+    if (!config.isValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请完整填写 GitHub 同步配置')),
+      );
+      return;
+    }
+    await GithubSyncService.saveConfig(config);
+    if (!mounted) {
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const finance_sync_status.GithubSyncStatusScreen(),
       ),
     );
   }

@@ -1,0 +1,59 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="128" x2="864" y2="896" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF2E63"/>
+      <stop offset="0.52" stop-color="#D81B9C"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <radialGradient id="coreGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(512 490) rotate(90) scale(360)">
+      <stop offset="0" stop-color="#FFBF75" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFBF75" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="goldMain" x1="350" y1="390" x2="690" y2="760" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD98A"/>
+      <stop offset="0.55" stop-color="#F5C15A"/>
+      <stop offset="1" stop-color="#D39A33"/>
+    </linearGradient>
+    <linearGradient id="walletGold" x1="320" y1="470" x2="706" y2="756" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD47C"/>
+      <stop offset="1" stop-color="#E8A83B"/>
+    </linearGradient>
+    <filter id="softShadow" x="220" y="300" width="584" height="500" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feFlood flood-opacity="0" result="BackgroundImageFix"/>
+      <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+      <feOffset dy="12"/>
+      <feGaussianBlur stdDeviation="14"/>
+      <feComposite in2="hardAlpha" operator="out"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0.16 0 0 0 0 0.02 0 0 0 0 0.14 0 0 0 0.30 0"/>
+      <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_1_1"/>
+      <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_1_1" result="shape"/>
+    </filter>
+  </defs>
+
+  <!-- Rounded app icon background -->
+  <rect x="64" y="64" width="896" height="896" rx="202" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="896" rx="202" fill="url(#coreGlow)"/>
+
+  <!-- Subtle top highlight -->
+  <path d="M160 156C240 118 360 102 512 102C686 102 810 128 880 172V244C812 198 686 172 512 172C358 172 238 192 160 224V156Z" fill="white" fill-opacity="0.07"/>
+
+  <!-- Wallet / ledger silhouette -->
+  <g filter="url(#softShadow)">
+    <path d="M292 470C292 442.386 314.386 420 342 420H682C709.614 420 732 442.386 732 470V694C732 728.242 704.242 756 670 756H354C319.758 756 292 728.242 292 694V470Z" fill="url(#walletGold)"/>
+    <path d="M292 492H732V554H292V492Z" fill="#F0BE65" fill-opacity="0.84"/>
+    <rect x="592" y="566" width="108" height="58" rx="29" fill="#B8741F" fill-opacity="0.42"/>
+  </g>
+
+  <!-- Gold ingot core -->
+  <path d="M372 400C385 372 414 354 446 354H578C610 354 639 372 652 400L698 500C708 522 692 548 668 548H356C332 548 316 522 326 500L372 400Z" fill="url(#goldMain)"/>
+  <path d="M410 404C418 388 434 378 452 378H572C590 378 606 388 614 404L634 446C640 460 630 476 614 476H410C394 476 384 460 390 446L410 404Z" fill="white" fill-opacity="0.18"/>
+
+  <!-- Upward trend line integrated into ingot -->
+  <path d="M370 610L454 546L516 584L636 478" stroke="#F2FAFF" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" opacity="0.97"/>
+  <path d="M636 478L625 530M636 478L583 488" stroke="#F2FAFF" stroke-width="34" stroke-linecap="round" stroke-linejoin="round" opacity="0.97"/>
+  <path d="M370 610L454 546L516 584L636 478" stroke="#7EE7FF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.42"/>
+
+  <!-- Micro highlights -->
+  <circle cx="366" cy="356" r="22" fill="white" fill-opacity="0.16"/>
+  <circle cx="712" cy="324" r="12" fill="white" fill-opacity="0.2"/>
+</svg>

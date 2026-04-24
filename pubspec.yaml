@@ -38,6 +38,9 @@ dependencies:
   fl_chart: ^1.2.0
   provider: ^6.1.5+1
   material_symbols_icons: ^4.2928.1
+  shared_preferences: ^2.5.3
+  http: ^1.5.0
+  flutter_slidable: ^4.0.1
 
 dev_dependencies:
   flutter_test:

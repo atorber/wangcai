@@ -1,8 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:finance_app/models/app_backup_bundle.dart';
+import 'package:finance_app/models/github_sync_config.dart';
+import 'package:finance_app/providers/account_provider.dart';
+import 'package:finance_app/providers/category_provider.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/services/github_sync_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:provider/provider.dart';
 
-class GithubSyncStatusScreen extends StatelessWidget {
+class GithubSyncStatusScreen extends StatefulWidget {
   const GithubSyncStatusScreen({super.key});
+
+  @override
+  State<GithubSyncStatusScreen> createState() => _GithubSyncStatusScreenState();
+}
+
+class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
+  GithubSyncConfig? _config;
+  String? _lastSyncAt;
+  bool _loading = true;
+  bool _syncing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +69,9 @@ class GithubSyncStatusScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: SafeArea(
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 32.0),
           child: Column(
@@ -56,7 +81,7 @@ class GithubSyncStatusScreen extends StatelessWidget {
               const SizedBox(height: 48),
               _buildDetailsCard(context),
               const Spacer(),
-              _buildActionButton(context),
+              _buildActionButtons(context),
               const SizedBox(height: 40),
             ],
           ),
@@ -90,7 +115,7 @@ class GithubSyncStatusScreen extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          '已同步',
+          _lastSyncAt == null ? '尚未同步' : '同步配置可用',
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
                 color: AppColors.onBackground,
               ),
@@ -125,7 +150,7 @@ class GithubSyncStatusScreen extends StatelessWidget {
                     ),
               ),
               Text(
-                '2023-10-27 14:30',
+                _lastSyncAt ?? '--',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.onSurface,
                       fontWeight: FontWeight.w500,
@@ -144,7 +169,26 @@ class GithubSyncStatusScreen extends StatelessWidget {
                     ),
               ),
               Text(
-                'finance-data/backup',
+                _config == null ? '--' : '${_config!.owner}/${_config!.repo}',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.onSurface,
+                      fontWeight: FontWeight.w500,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '云端文件',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.secondary,
+                    ),
+              ),
+              Text(
+                _config?.path ?? '--',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.onSurface,
                       fontWeight: FontWeight.w500,
@@ -157,32 +201,132 @@ class GithubSyncStatusScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButton(BuildContext context) {
-    return ElevatedButton(
-      onPressed: () {},
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primaryContainer,
-        foregroundColor: AppColors.onPrimary,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        elevation: 4,
-        shadowColor: const Color(0x0A000000),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.sync, size: 20),
-          const SizedBox(width: 8),
-          Text(
-            '立即手动同步',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.onPrimary,
-                ),
+  Widget _buildActionButtons(BuildContext context) {
+    return Column(
+      children: [
+        ElevatedButton(
+          onPressed: _syncing ? null : _uploadNow,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryContainer,
+            foregroundColor: AppColors.onPrimary,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
           ),
-        ],
-      ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_upload, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                '上传到 GitHub',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.onPrimary,
+                    ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          onPressed: _syncing ? null : _downloadNow,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_download, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                '从 GitHub 下载覆盖本地',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
+  }
+
+  Future<void> _init() async {
+    final config = await GithubSyncService.loadConfig();
+    final lastSyncAt = await GithubSyncService.getLastSyncAt();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _config = config;
+      _lastSyncAt = lastSyncAt;
+      _loading = false;
+    });
+  }
+
+  Future<void> _uploadNow() async {
+    if (_config == null) {
+      _showMessage('请先在上一步保存 GitHub 配置');
+      return;
+    }
+    setState(() => _syncing = true);
+    try {
+      final bundle = AppBackupBundle(
+        version: 1,
+        exportedAt: DateTime.now(),
+        accounts: context.read<AccountProvider>().accounts,
+        lenders: context.read<AccountProvider>().lenders,
+        categories: context.read<CategoryProvider>().categories,
+        transactions: context.read<TransactionProvider>().transactions,
+      );
+      await GithubSyncService.uploadBackup(_config!, bundle);
+      _lastSyncAt = await GithubSyncService.getLastSyncAt();
+      _showMessage('上传成功');
+      setState(() {});
+    } catch (e) {
+      _showMessage('上传失败：$e');
+    } finally {
+      if (mounted) {
+        setState(() => _syncing = false);
+      }
+    }
+  }
+
+  Future<void> _downloadNow() async {
+    if (_config == null) {
+      _showMessage('请先在上一步保存 GitHub 配置');
+      return;
+    }
+    final transactionProvider = context.read<TransactionProvider>();
+    final accountProvider = context.read<AccountProvider>();
+    final categoryProvider = context.read<CategoryProvider>();
+    setState(() => _syncing = true);
+    try {
+      final bundle = await GithubSyncService.downloadBackup(_config!);
+      await accountProvider.replaceAll(bundle.accounts);
+      await accountProvider.replaceLenders(bundle.lenders);
+      await categoryProvider.replaceAll(bundle.categories);
+      await transactionProvider.replaceAll(bundle.transactions);
+      _lastSyncAt = await GithubSyncService.getLastSyncAt();
+      _showMessage(
+        '恢复完成：${bundle.transactions.length} 条账单，${bundle.accounts.length} 个账户，${bundle.lenders.length} 个借贷人，${bundle.categories.length} 个分类',
+      );
+      setState(() {});
+    } catch (e) {
+      _showMessage('下载失败：$e');
+    } finally {
+      if (mounted) {
+        setState(() => _syncing = false);
+      }
+    }
+  }
+
+  void _showMessage(String text) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 }
