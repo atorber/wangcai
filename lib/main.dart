@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:finance_app/providers/app_settings_provider.dart';
 import 'package:finance_app/providers/category_provider.dart';
+import 'package:finance_app/providers/budget_provider.dart';
 import 'package:finance_app/providers/security_provider.dart';
 import 'package:finance_app/theme/app_theme.dart';
 import 'package:finance_app/screens/main_layout.dart';
@@ -22,6 +23,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AccountProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(create: (_) => BudgetProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
         ChangeNotifierProvider(create: (_) => AppSettingsProvider()),

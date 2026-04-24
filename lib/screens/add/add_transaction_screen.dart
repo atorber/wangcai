@@ -9,12 +9,10 @@ import 'package:finance_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 
 class AddTransactionScreen extends StatefulWidget {
-  const AddTransactionScreen({
-    super.key,
-    this.initialRecord,
-  });
+  const AddTransactionScreen({super.key, this.initialRecord, this.onSaved});
 
   final TransactionRecord? initialRecord;
+  final VoidCallback? onSaved;
 
   @override
   State<AddTransactionScreen> createState() => _AddTransactionScreenState();
@@ -40,7 +38,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       final accounts = context.read<AccountProvider>().accounts;
       if (accounts.isNotEmpty) {
         _selectedAccountId = accounts.first.id;
-        _selectedTransferAccountId = accounts.length > 1 ? accounts[1].id : accounts.first.id;
+        _selectedTransferAccountId = accounts.length > 1
+            ? accounts[1].id
+            : accounts.first.id;
       }
     }
     if (_selectedLenderId == null) {
@@ -58,7 +58,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       _selectedDate = record.date;
       _amountController.text = record.amount.toStringAsFixed(2);
       _noteController.text = record.note;
-      final categoryIndex = categories.indexWhere((item) => item.label == record.category);
+      final categoryIndex = categories.indexWhere(
+        (item) => item.label == record.category,
+      );
       _selectedCategoryIndex = categoryIndex >= 0 ? categoryIndex : 0;
       _initializedFromRecord = true;
     }
@@ -76,11 +78,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withOpacity(0.8),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(
+          alpha: 0.8,
+        ),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         leading: Navigator.of(context).canPop()
             ? IconButton(
                 icon: const Icon(Icons.close, color: AppColors.secondary),
@@ -90,9 +94,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         title: Text(
           widget.initialRecord == null ? '添加账单' : '编辑账单',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: AppColors.primaryContainer,
-              ),
+            fontWeight: FontWeight.w500,
+            color: AppColors.primaryContainer,
+          ),
         ),
         centerTitle: true,
       ),
@@ -128,14 +132,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
               elevation: 4,
-              shadowColor: AppColors.primaryContainer.withOpacity(0.15),
+              shadowColor: AppColors.primaryContainer.withValues(alpha: 0.15),
             ),
             child: Text(
               '保存',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.onPrimary,
-                  ),
+                fontWeight: FontWeight.w600,
+                color: AppColors.onPrimary,
+              ),
             ),
           ),
         ),
@@ -172,7 +176,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                             color: Color(0x0A000000),
                             blurRadius: 2,
                             offset: Offset(0, 1),
-                          )
+                          ),
                         ],
                       )
                     : null,
@@ -180,9 +184,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   _transactionTypes[index],
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
-                        color: isSelected ? AppColors.onSurface : AppColors.secondary,
-                      ),
+                    fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
+                    color: isSelected
+                        ? AppColors.onSurface
+                        : AppColors.secondary,
+                  ),
                 ),
               ),
             ),
@@ -197,9 +203,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       children: [
         Text(
           '金额',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppColors.secondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.secondary),
         ),
         const SizedBox(height: 4),
         Row(
@@ -209,25 +215,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           children: [
             Text(
               '¥',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                    color: AppColors.secondary,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.displayLarge?.copyWith(color: AppColors.secondary),
             ),
             const SizedBox(width: 4),
             IntrinsicWidth(
               child: TextField(
                 autofocus: true,
                 controller: _amountController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                      color: AppColors.primary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.displayLarge?.copyWith(color: AppColors.primary),
                 decoration: InputDecoration(
                   hintText: '0.00',
                   hintStyle: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        color: AppColors.surfaceContainerHighest,
-                      ),
+                    color: AppColors.surfaceContainerHighest,
+                  ),
                   border: InputBorder.none,
                   isDense: true,
                   contentPadding: EdgeInsets.zero,
@@ -236,7 +244,38 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: [
+            _buildQuickAmountButton('+10', () => _applyQuickAmount(10)),
+            _buildQuickAmountButton('+50', () => _applyQuickAmount(50)),
+            _buildQuickAmountButton('+100', () => _applyQuickAmount(100)),
+            _buildQuickAmountButton('清零', _clearAmount),
+          ],
+        ),
       ],
+    );
+  }
+
+  Widget _buildQuickAmountButton(String label, VoidCallback onTap) {
+    return OutlinedButton(
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.primary,
+        side: BorderSide(color: AppColors.primary.withValues(alpha: 0.24)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: AppColors.primary,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 
@@ -247,9 +286,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       children: [
         Text(
           '选择类别',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppColors.secondary,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.secondary),
         ),
         const SizedBox(height: 16),
         GridView.builder(
@@ -288,7 +327,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     ),
                     child: Icon(
                       cat.icon,
-                      color: isSelected ? AppColors.primaryContainer : AppColors.primary,
+                      color: isSelected
+                          ? AppColors.primaryContainer
+                          : AppColors.primary,
                       size: 24,
                     ),
                   ),
@@ -296,9 +337,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   Text(
                     cat.label,
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: isSelected ? AppColors.primaryContainer : AppColors.onSurfaceVariant,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                        ),
+                      color: isSelected
+                          ? AppColors.primaryContainer
+                          : AppColors.onSurfaceVariant,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                    ),
                   ),
                 ],
               ),
@@ -366,9 +411,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
             title,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.secondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: AppColors.secondary),
           ),
         ),
         InkWell(
@@ -377,10 +422,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.primaryContainer.withOpacity(0.1),
+              color: AppColors.primaryContainer.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.primaryContainer.withOpacity(0.2),
+                color: AppColors.primaryContainer.withValues(alpha: 0.2),
               ),
             ),
             child: Row(
@@ -391,7 +436,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
+                        color: AppColors.primary.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Icon(
@@ -404,8 +449,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                     Text(
                       selectedAccount?.name ?? '请选择账户',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppColors.primary,
-                          ),
+                        color: AppColors.primary,
+                      ),
                     ),
                   ],
                 ),
@@ -429,9 +474,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
             '借贷人',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.secondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: AppColors.secondary),
           ),
         ),
         Row(
@@ -472,7 +517,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(width: 8),
             IconButton(
               onPressed: _addLender,
-              icon: const Icon(Icons.person_add_alt_1, color: AppColors.primary),
+              icon: const Icon(
+                Icons.person_add_alt_1,
+                color: AppColors.primary,
+              ),
             ),
           ],
         ),
@@ -495,9 +543,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.secondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: AppColors.secondary),
           ),
         ),
         Container(
@@ -509,17 +557,24 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             readOnly: readOnly,
             onTap: onTap,
             controller: controller,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onSurface,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurface),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.outlineVariant,
-                  ),
+              hintStyle: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.outlineVariant),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              suffixIcon: Icon(icon, color: AppColors.onSurfaceVariant, size: 20),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              suffixIcon: Icon(
+                icon,
+                color: AppColors.onSurfaceVariant,
+                size: 20,
+              ),
             ),
           ),
         ),
@@ -565,19 +620,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   Future<String?> _selectAccount({required bool allowCurrentAccount}) async {
     final accounts = context.read<AccountProvider>().accounts;
     if (accounts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先添加账户')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先添加账户')));
       return null;
     }
 
     final availableAccounts = allowCurrentAccount
         ? accounts
-        : accounts.where((item) => item.id != _selectedAccountId).toList(growable: false);
+        : accounts
+              .where((item) => item.id != _selectedAccountId)
+              .toList(growable: false);
     if (availableAccounts.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('暂无可选转入账户')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂无可选转入账户')));
       return null;
     }
 
@@ -593,7 +650,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               leading: Icon(account.icon, color: AppColors.primary),
               title: Text(account.name),
               subtitle: Text(account.typeLabel),
-              trailing: account.id == (allowCurrentAccount ? _selectedAccountId : _selectedTransferAccountId)
+              trailing:
+                  account.id ==
+                      (allowCurrentAccount
+                          ? _selectedAccountId
+                          : _selectedTransferAccountId)
                   ? const Icon(Icons.check, color: AppColors.primary)
                   : null,
               onTap: () => Navigator.of(bottomSheetContext).pop(account.id),
@@ -623,29 +684,31 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final amountText = _amountController.text.trim();
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入大于 0 的金额')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入大于 0 的金额')));
       return;
     }
 
     final categoryProvider = context.read<CategoryProvider>();
     final categories = categoryProvider.categories;
     if (categories.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先配置分类')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先配置分类')));
       return;
     }
-    final category = categories[_selectedCategoryIndex.clamp(0, categories.length - 1)].label;
+    final category =
+        categories[_selectedCategoryIndex.clamp(0, categories.length - 1)]
+            .label;
     final accountProvider = context.read<AccountProvider>();
     final transactionProvider = context.read<TransactionProvider>();
     final accounts = accountProvider.accounts;
     final selectedAccount = _findSelectedAccount(accounts);
     if (selectedAccount == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择付款账户')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先选择付款账户')));
       return;
     }
 
@@ -664,15 +727,15 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
       }
       if (transferAccount == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请选择转入账户')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请选择转入账户')));
         return;
       }
       if (transferAccount.id == selectedAccount.id) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('转入账户不能与转出账户相同')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('转入账户不能与转出账户相同')));
         return;
       }
       transferAccountId = transferAccount.id;
@@ -689,9 +752,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         }
       }
       if (lender == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('请选择借贷人')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请选择借贷人')));
         return;
       }
       lenderId = lender.id;
@@ -713,13 +776,22 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         note: _noteController.text.trim(),
       );
       await accountProvider.applyTransaction(record);
+      await categoryProvider.markCategoryUsed(category);
 
-      _amountController.clear();
-      _noteController.clear();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('账单已保存')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('账单已保存')));
+        if (widget.onSaved != null) {
+          widget.onSaved!();
+          return;
+        }
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(true);
+          return;
+        }
+        _amountController.clear();
+        _noteController.clear();
       }
       return;
     }
@@ -744,10 +816,25 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       newRecord: updated,
     );
     await transactionProvider.updateTransaction(updated);
+    await categoryProvider.markCategoryUsed(category);
 
     if (mounted) {
       Navigator.of(context).pop(true);
     }
+  }
+
+  void _applyQuickAmount(double delta) {
+    final raw = _amountController.text.trim();
+    final current = double.tryParse(raw) ?? 0;
+    final next = current + delta;
+    _amountController.text = next.toStringAsFixed(2);
+    _amountController.selection = TextSelection.fromPosition(
+      TextPosition(offset: _amountController.text.length),
+    );
+  }
+
+  void _clearAmount() {
+    _amountController.clear();
   }
 
   Future<void> _addLender() async {
@@ -766,7 +853,8 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(controller.text.trim()),
+            onPressed: () =>
+                Navigator.of(dialogContext).pop(controller.text.trim()),
             child: const Text('确定'),
           ),
         ],

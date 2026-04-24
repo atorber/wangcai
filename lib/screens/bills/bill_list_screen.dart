@@ -17,9 +17,14 @@ class BillListScreen extends StatefulWidget {
 
 class _BillListScreenState extends State<BillListScreen> {
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _keywordController = TextEditingController();
   static const int _pageSize = 20;
   int _visibleCount = 20;
   bool _isLoadingMore = false;
+  int _selectedTypeIndex = 0;
+  DateTime? _startDate;
+  DateTime? _endDate;
+  static const List<String> _typeFilters = ['全部', '支出', '收入', '转账', '借贷'];
 
   @override
   void initState() {
@@ -30,6 +35,7 @@ class _BillListScreenState extends State<BillListScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _keywordController.dispose();
     super.dispose();
   }
 
@@ -38,52 +44,200 @@ class _BillListScreenState extends State<BillListScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(
+          alpha: 0.9,
+        ),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
           '账单',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-              ),
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+          ),
         ),
       ),
       body: Consumer<TransactionProvider>(
         builder: (context, provider, _) {
-          final records = provider.getTransactionsPage(offset: 0, limit: _visibleCount);
+          final filter = _buildFilter();
+          final records = provider.queryPage(
+            offset: 0,
+            limit: _visibleCount,
+            filter: filter,
+          );
+          final total = provider.countByFilter(filter);
           final groupedRecords = _groupByMonth(records);
           if (records.isEmpty) {
-            return Center(
-              child: Text(
-                '暂无账单记录',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.onSurfaceVariant,
+            return Column(
+              children: [
+                _buildFilterSection(context),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      '暂无账单记录',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
                     ),
-              ),
+                  ),
+                ),
+              ],
             );
           }
-          return ListView.separated(
-            controller: _scrollController,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            itemCount: groupedRecords.length + (records.length < provider.totalCount ? 1 : 0),
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              if (index >= groupedRecords.length) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                );
-              }
-              final item = groupedRecords[index];
-              if (item is String) {
-                return _buildMonthHeader(context, item);
-              }
-              final record = item as TransactionRecord;
-              return _buildBillItem(context, record);
-            },
+          return Column(
+            children: [
+              _buildFilterSection(context),
+              Expanded(
+                child: ListView.separated(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  itemCount:
+                      groupedRecords.length + (records.length < total ? 1 : 0),
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    if (index >= groupedRecords.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    }
+                    final item = groupedRecords[index];
+                    if (item is String) {
+                      return _buildMonthHeader(context, item);
+                    }
+                    final record = item as TransactionRecord;
+                    return _buildBillItem(context, record);
+                  },
+                ),
+              ),
+            ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildFilterSection(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: Border(
+          bottom: BorderSide(
+            color: AppColors.outlineVariant.withValues(alpha: 0.2),
+          ),
+        ),
+      ),
+      child: Column(
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(_typeFilters.length, (index) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    right: index == _typeFilters.length - 1 ? 0 : 8,
+                  ),
+                  child: ChoiceChip(
+                    label: Text(_typeFilters[index]),
+                    selected: _selectedTypeIndex == index,
+                    onSelected: (_) {
+                      setState(() {
+                        _selectedTypeIndex = index;
+                        _visibleCount = _pageSize;
+                      });
+                    },
+                  ),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: _pickDateRange,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.date_range,
+                          size: 18,
+                          color: AppColors.secondary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _dateRangeLabel,
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: AppColors.onSurfaceVariant),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (_startDate != null || _endDate != null)
+                IconButton(
+                  onPressed: () {
+                    setState(() {
+                      _startDate = null;
+                      _endDate = null;
+                      _visibleCount = _pageSize;
+                    });
+                  },
+                  icon: const Icon(Icons.clear, size: 18),
+                  tooltip: '清除日期',
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _keywordController,
+            decoration: InputDecoration(
+              hintText: '搜索分类、账户、备注',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _keywordController.text.trim().isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _keywordController.clear();
+                        setState(() {
+                          _visibleCount = _pageSize;
+                        });
+                      },
+                      icon: const Icon(Icons.close, size: 18),
+                    ),
+              filled: true,
+              fillColor: AppColors.surfaceContainer,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              isDense: true,
+            ),
+            onChanged: (_) {
+              setState(() {
+                _visibleCount = _pageSize;
+              });
+            },
+          ),
+        ],
       ),
     );
   }
@@ -97,15 +251,17 @@ class _BillListScreenState extends State<BillListScreen> {
       child: Text(
         '$year年$month月',
         style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
+          color: AppColors.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
 
   Widget _buildBillItem(BuildContext context, TransactionRecord record) {
-    final isIncome = record.type == TransactionType.income || record.type == TransactionType.borrow;
+    final isIncome =
+        record.type == TransactionType.income ||
+        record.type == TransactionType.borrow;
     return Slidable(
       key: ValueKey(record.id),
       endActionPane: ActionPane(
@@ -158,16 +314,16 @@ class _BillListScreenState extends State<BillListScreen> {
                   Text(
                     _titleForRecord(record),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: AppColors.onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     _subtitleForRecord(record),
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: AppColors.onSurfaceVariant,
-                        ),
+                      color: AppColors.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -176,9 +332,11 @@ class _BillListScreenState extends State<BillListScreen> {
               amount: record.amount,
               sign: isIncome ? '+' : '-',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: isIncome ? AppColors.primaryContainer : AppColors.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: isIncome
+                    ? AppColors.primaryContainer
+                    : AppColors.onSurface,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -212,9 +370,9 @@ class _BillListScreenState extends State<BillListScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('账单已删除')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('账单已删除')));
     }
   }
 
@@ -225,9 +383,9 @@ class _BillListScreenState extends State<BillListScreen> {
       ),
     );
     if (edited == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('账单已更新')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('账单已更新')));
     }
   }
 
@@ -239,7 +397,9 @@ class _BillListScreenState extends State<BillListScreen> {
     if (_scrollController.position.pixels < threshold) {
       return;
     }
-    final total = context.read<TransactionProvider>().totalCount;
+    final total = context.read<TransactionProvider>().countByFilter(
+      _buildFilter(),
+    );
     if (_visibleCount >= total) {
       return;
     }
@@ -258,6 +418,73 @@ class _BillListScreenState extends State<BillListScreen> {
       _visibleCount += _pageSize;
       _isLoadingMore = false;
     });
+  }
+
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      initialDateRange: (_startDate != null && _endDate != null)
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+    );
+    if (picked == null) {
+      return;
+    }
+    setState(() {
+      _startDate = DateTime(
+        picked.start.year,
+        picked.start.month,
+        picked.start.day,
+      );
+      _endDate = DateTime(
+        picked.end.year,
+        picked.end.month,
+        picked.end.day,
+        23,
+        59,
+        59,
+        999,
+      );
+      _visibleCount = _pageSize;
+    });
+  }
+
+  TransactionQueryFilter _buildFilter() {
+    final keyword = _keywordController.text.trim();
+    return TransactionQueryFilter(
+      types: _typesForFilter(),
+      startDate: _startDate,
+      endDate: _endDate,
+      keyword: keyword.isEmpty ? null : keyword,
+    );
+  }
+
+  Set<TransactionType>? _typesForFilter() {
+    switch (_selectedTypeIndex) {
+      case 1:
+        return {TransactionType.expense};
+      case 2:
+        return {TransactionType.income};
+      case 3:
+        return {TransactionType.transfer};
+      case 4:
+        return {TransactionType.lend, TransactionType.borrow};
+      default:
+        return null;
+    }
+  }
+
+  String get _dateRangeLabel {
+    if (_startDate == null || _endDate == null) {
+      return '日期范围：全部';
+    }
+    return '${_shortDate(_startDate!)} - ${_shortDate(_endDate!)}';
+  }
+
+  String _shortDate(DateTime value) {
+    return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
   }
 
   String _formatDate(DateTime date) {

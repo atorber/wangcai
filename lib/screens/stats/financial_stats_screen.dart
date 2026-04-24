@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:finance_app/models/transaction_record.dart';
+import 'package:finance_app/providers/budget_provider.dart';
+import 'package:finance_app/providers/category_provider.dart';
 import 'package:finance_app/providers/security_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/services/stats_service.dart';
@@ -31,22 +34,27 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withOpacity(0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(
+          alpha: 0.9,
+        ),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         centerTitle: true,
         title: Text(
           '统计',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: AppColors.primary,
-              ),
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: AppColors.primary),
+            icon: const Icon(
+              Icons.notifications_none,
+              color: AppColors.primary,
+            ),
             onPressed: () {},
           ),
         ],
@@ -69,6 +77,8 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                 const SizedBox(height: 24),
                 _buildSpendingTrendsSection(snapshot),
                 const SizedBox(height: 24),
+                _buildBudgetProgressSection(),
+                const SizedBox(height: 24),
                 _buildInsightsSection(snapshot),
                 const SizedBox(height: 80),
               ],
@@ -87,42 +97,46 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        children: StatsPeriod.values.map((period) {
-          final isSelected = _period == period;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  _period = period;
-                });
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: isSelected
-                    ? BoxDecoration(
-                        color: AppColors.surfaceContainerLowest,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x0A000000),
-                            blurRadius: 2,
-                            offset: Offset(0, 1),
+        children: StatsPeriod.values
+            .map((period) {
+              final isSelected = _period == period;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _period = period;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: isSelected
+                        ? BoxDecoration(
+                            color: AppColors.surfaceContainerLowest,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x0A000000),
+                                blurRadius: 2,
+                                offset: Offset(0, 1),
+                              ),
+                            ],
                           )
-                        ],
-                      )
-                    : null,
-                child: Text(
-                  period.label,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
+                        : null,
+                    child: Text(
+                      period.label,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: isSelected
+                            ? AppColors.primary
+                            : AppColors.onSurfaceVariant,
                       ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          );
-        }).toList(growable: false),
+              );
+            })
+            .toList(growable: false),
       ),
     );
   }
@@ -140,7 +154,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
             color: Color(0x0A000000),
             blurRadius: 20,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -149,8 +163,8 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
           Text(
             _rangeLabel(snapshot),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -160,16 +174,16 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
               Text(
                 '结余',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
               const SizedBox(width: 8),
               PrivacyAmountText(
                 amount: balance,
                 style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: balanceColor,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  color: balanceColor,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
             ],
           ),
@@ -183,7 +197,11 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                   color: AppColors.primaryContainer,
                 ),
               ),
-              Container(width: 1, height: 32, color: AppColors.surfaceContainer),
+              Container(
+                width: 1,
+                height: 32,
+                color: AppColors.surfaceContainer,
+              ),
               Expanded(
                 child: _buildKeyFigure(
                   label: '支出',
@@ -210,18 +228,18 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
       children: [
         Text(
           label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: AppColors.onSurfaceVariant),
         ),
         const SizedBox(height: 4),
         PrivacyAmountText(
           amount: amount,
           sign: prefix,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w600,
-              ),
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -238,7 +256,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
             color: Color(0x0A000000),
             blurRadius: 20,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -272,9 +290,8 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                       children: [
                         Text(
                           '总计',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: AppColors.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: AppColors.onSurfaceVariant),
                         ),
                         PrivacyAmountText(
                           amount: snapshot.totalExpense,
@@ -296,19 +313,15 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
   }
 
   List<PieChartSectionData> _pieSections(StatsSnapshot snapshot) {
-    return List.generate(
-      snapshot.categoryBreakdown.length,
-      (index) {
-        final item = snapshot.categoryBreakdown[index];
-        return PieChartSectionData(
-          color: _palette[index % _palette.length],
-          value: item.amount,
-          title: '',
-          radius: 16,
-        );
-      },
-      growable: false,
-    );
+    return List.generate(snapshot.categoryBreakdown.length, (index) {
+      final item = snapshot.categoryBreakdown[index];
+      return PieChartSectionData(
+        color: _palette[index % _palette.length],
+        value: item.amount,
+        title: '',
+        radius: 16,
+      );
+    }, growable: false);
   }
 
   Widget _buildLegendGrid(StatsSnapshot snapshot) {
@@ -332,7 +345,12 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     );
   }
 
-  Widget _buildLegendItem(Color color, String label, String amount, String ratio) {
+  Widget _buildLegendItem(
+    Color color,
+    String label,
+    String amount,
+    String ratio,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -340,10 +358,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
           margin: const EdgeInsets.only(top: 4),
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -354,17 +369,17 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: AppColors.onSurface,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.labelMedium?.copyWith(color: AppColors.onSurface),
               ),
               Text(
                 '$amount · $ratio',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: AppColors.onSurfaceVariant,
-                    ),
+                  color: AppColors.onSurfaceVariant,
+                ),
               ),
             ],
           ),
@@ -381,13 +396,13 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     final deltaColor = deltaRatio == null
         ? AppColors.onSurfaceVariant
         : deltaRatio <= 0
-            ? AppColors.primary
-            : AppColors.tertiary;
+        ? AppColors.primary
+        : AppColors.tertiary;
     final deltaIcon = deltaRatio == null
         ? Icons.trending_flat
         : deltaRatio <= 0
-            ? Icons.trending_down
-            : Icons.trending_up;
+        ? Icons.trending_down
+        : Icons.trending_up;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -399,7 +414,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
             color: Color(0x0A000000),
             blurRadius: 20,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -411,21 +426,22 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('支出趋势', style: Theme.of(context).textTheme.displayMedium),
+                  Text(
+                    '支出趋势',
+                    style: Theme.of(context).textTheme.displayMedium,
+                  ),
                   const SizedBox(height: 2),
                   Row(
                     children: [
                       Text(
                         '日均：',
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: AppColors.onSurfaceVariant),
                       ),
                       PrivacyAmountText(
                         amount: snapshot.avgDailyExpense,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: AppColors.onSurfaceVariant),
                       ),
                     ],
                   ),
@@ -436,8 +452,12 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                   Icon(deltaIcon, color: deltaColor, size: 18),
                   const SizedBox(width: 4),
                   Text(
-                    deltaRatio == null ? '无对比数据' : '相比上一$_periodLabel $deltaPercentText',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: deltaColor),
+                    deltaRatio == null
+                        ? '无对比数据'
+                        : '相比上一$_periodLabel $deltaPercentText',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelMedium?.copyWith(color: deltaColor),
                   ),
                 ],
               ),
@@ -447,10 +467,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
           if (!snapshot.hasExpense)
             _buildEmptyChart('暂无支出数据可绘制趋势')
           else
-            SizedBox(
-              height: 192,
-              child: _buildTrendBars(snapshot),
-            ),
+            SizedBox(height: 192, child: _buildTrendBars(snapshot)),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -466,15 +483,20 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
 
   Widget _buildTrendBars(StatsSnapshot snapshot) {
     final points = snapshot.trendPoints;
-    final maxAmount = points.fold<double>(0, (p, e) => e.amount > p ? e.amount : p);
-    final showEveryNLabel = points.length > 12 ? (points.length / 12).ceil() : 1;
+    final maxAmount = points.fold<double>(
+      0,
+      (p, e) => e.amount > p ? e.amount : p,
+    );
+    final showEveryNLabel = points.length > 12
+        ? (points.length / 12).ceil()
+        : 1;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(points.length, (index) {
         final point = points[index];
         final height = maxAmount > 0 ? point.amount / maxAmount : 0.0;
-        final showLabel = index % showEveryNLabel == 0 ||
-            index == points.length - 1;
+        final showLabel =
+            index % showEveryNLabel == 0 || index == points.length - 1;
         return Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -503,12 +525,13 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                 Text(
                   showLabel ? point.label : '',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: point.isCurrent
-                            ? AppColors.onSurface
-                            : AppColors.onSurfaceVariant,
-                        fontWeight:
-                            point.isCurrent ? FontWeight.bold : FontWeight.w500,
-                      ),
+                    color: point.isCurrent
+                        ? AppColors.onSurface
+                        : AppColors.onSurfaceVariant,
+                    fontWeight: point.isCurrent
+                        ? FontWeight.bold
+                        : FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -529,12 +552,271 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
         const SizedBox(width: 8),
         Text(
           text,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: AppColors.onSurfaceVariant),
         ),
       ],
     );
+  }
+
+  Widget _buildBudgetProgressSection() {
+    return Consumer3<BudgetProvider, CategoryProvider, TransactionProvider>(
+      builder: (context, budgetProvider, categoryProvider, transactionProvider, _) {
+        final monthStart = DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          1,
+        );
+        final nextMonthStart = DateTime(
+          DateTime.now().year,
+          DateTime.now().month + 1,
+          1,
+        );
+        final budgets = budgetProvider.budgets;
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 20,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '预算进度',
+                      style: Theme.of(context).textTheme.displayMedium,
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _showBudgetEditor(context),
+                    icon: const Icon(Icons.tune, size: 18),
+                    label: const Text('管理'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (budgets.isEmpty || categoryProvider.categories.isEmpty)
+                Text(
+                  '尚未设置预算，点击“管理”添加分类预算。',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                )
+              else
+                ...budgets.map((budget) {
+                  final matches = categoryProvider.categories.where(
+                    (item) => item.id == budget.categoryId,
+                  );
+                  if (matches.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  final category = matches.first;
+                  final used = transactionProvider.transactions
+                      .where(
+                        (item) =>
+                            item.type == TransactionType.expense &&
+                            item.category == category.label &&
+                            !item.date.isBefore(monthStart) &&
+                            item.date.isBefore(nextMonthStart),
+                      )
+                      .fold<double>(0, (sum, item) => sum + item.amount);
+                  final ratio = budget.monthlyLimit <= 0
+                      ? 0.0
+                      : (used / budget.monthlyLimit);
+                  final progress = ratio.clamp(0.0, 1.0);
+                  final over = ratio > 1;
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: Text(category.label)),
+                            Text(
+                              '¥${used.toStringAsFixed(2)} / ¥${budget.monthlyLimit.toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    color: over
+                                        ? AppColors.error
+                                        : AppColors.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            minHeight: 8,
+                            value: progress,
+                            backgroundColor: AppColors.surfaceContainer,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              over
+                                  ? AppColors.error
+                                  : AppColors.primaryContainer,
+                            ),
+                          ),
+                        ),
+                        if (over)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              '已超预算 ¥${(used - budget.monthlyLimit).toStringAsFixed(2)}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: AppColors.error),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showBudgetEditor(BuildContext context) async {
+    final categoryProvider = context.read<CategoryProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
+    if (categoryProvider.categories.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请先配置分类')));
+      return;
+    }
+    String selectedCategoryId = categoryProvider.categories.first.id;
+    final controller = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            final currentBudget = budgetProvider.findByCategoryId(
+              selectedCategoryId,
+            );
+            controller.text = controller.text.isEmpty && currentBudget != null
+                ? currentBudget.monthlyLimit.toStringAsFixed(2)
+                : controller.text;
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '设置分类预算',
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      key: ValueKey(selectedCategoryId),
+                      initialValue: selectedCategoryId,
+                      items: categoryProvider.categories
+                          .map(
+                            (item) => DropdownMenuItem<String>(
+                              value: item.id,
+                              child: Text(item.label),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) {
+                        if (value == null) {
+                          return;
+                        }
+                        setLocalState(() {
+                          selectedCategoryId = value;
+                          final budget = budgetProvider.findByCategoryId(value);
+                          controller.text =
+                              budget?.monthlyLimit.toStringAsFixed(2) ?? '';
+                        });
+                      },
+                      decoration: const InputDecoration(labelText: '分类'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: '月预算',
+                        hintText: '例如 2000',
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () async {
+                              await budgetProvider.removeBudget(
+                                selectedCategoryId,
+                              );
+                              if (sheetContext.mounted) {
+                                Navigator.of(sheetContext).pop();
+                              }
+                            },
+                            child: const Text('删除预算'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton(
+                            onPressed: () async {
+                              final value = double.tryParse(
+                                controller.text.trim(),
+                              );
+                              if (value == null || value <= 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('请输入大于 0 的预算金额'),
+                                  ),
+                                );
+                                return;
+                              }
+                              await budgetProvider.upsertBudget(
+                                categoryId: selectedCategoryId,
+                                monthlyLimit: value,
+                              );
+                              if (sheetContext.mounted) {
+                                Navigator.of(sheetContext).pop();
+                              }
+                            },
+                            child: const Text('保存'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    controller.dispose();
   }
 
   Widget _buildInsightsSection(StatsSnapshot snapshot) {
@@ -558,7 +840,8 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     if (snapshot.expenseDeltaRatio != null) {
       final delta = snapshot.expenseDeltaRatio!;
       final isSaving = delta < 0;
-      final amount = (snapshot.previousTotalExpense - snapshot.totalExpense).abs();
+      final amount = (snapshot.previousTotalExpense - snapshot.totalExpense)
+          .abs();
       widgets.add(
         _buildInsightCard(
           icon: isSaving ? Icons.savings_outlined : Icons.trending_up,
@@ -577,7 +860,8 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
           tone: _InsightTone.neutral,
           label: '支出最多',
           value: top.category,
-          hint: '${_privacyAmount(context, top.amount, decimalDigits: 0)} · ${(top.ratio * 100).toStringAsFixed(0)}%',
+          hint:
+              '${_privacyAmount(context, top.amount, decimalDigits: 0)} · ${(top.ratio * 100).toStringAsFixed(0)}%',
         ),
       );
     }
@@ -596,11 +880,11 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     late final Color fgColor;
     switch (tone) {
       case _InsightTone.positive:
-        bgColor = AppColors.primaryFixed.withOpacity(0.35);
+        bgColor = AppColors.primaryFixed.withValues(alpha: 0.35);
         fgColor = AppColors.primary;
         break;
       case _InsightTone.warning:
-        bgColor = AppColors.tertiaryFixed.withOpacity(0.5);
+        bgColor = AppColors.tertiaryFixed.withValues(alpha: 0.5);
         fgColor = AppColors.tertiary;
         break;
       case _InsightTone.neutral:
@@ -621,23 +905,25 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
           const SizedBox(height: 8),
           Text(
             label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fgColor),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: fgColor),
           ),
           const SizedBox(height: 4),
           Text(
             value,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: fgColor,
-                  fontWeight: FontWeight.w700,
-                ),
+              color: fgColor,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           if (hint != null) ...[
             const SizedBox(height: 2),
             Text(
               hint,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: fgColor.withOpacity(0.72),
-                  ),
+                color: fgColor.withValues(alpha: 0.72),
+              ),
             ),
           ],
         ],
@@ -652,9 +938,9 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
       alignment: Alignment.center,
       child: Text(
         text,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.onSurfaceVariant,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant),
       ),
     );
   }

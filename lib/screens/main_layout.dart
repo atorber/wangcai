@@ -16,13 +16,22 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
+  List<Widget> get _screens => [
     const AssetOverviewScreen(),
     const FinancialStatsScreen(),
-    const AddTransactionScreen(),
+    AddTransactionScreen(onSaved: _switchToBillTab),
     const BillListScreen(),
     const SettingsScreen(),
   ];
+
+  void _switchToBillTab() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _currentIndex = 3;
+    });
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -33,10 +42,7 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: Theme.of(context).brightness == Brightness.dark
@@ -54,12 +60,15 @@ class _MainLayoutState extends State<MainLayout> {
               color: Color(0x0A000000), // rgba(0,0,0,0.04)
               blurRadius: 20,
               offset: Offset(0, -4),
-            )
+            ),
           ],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 16.0,
+              vertical: 8.0,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -86,7 +95,7 @@ class _MainLayoutState extends State<MainLayout> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: isSelected && index == 4
             ? BoxDecoration(
-                color: AppColors.background.withOpacity(0.5),
+                color: AppColors.background.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(12),
               )
             : null,
@@ -97,17 +106,17 @@ class _MainLayoutState extends State<MainLayout> {
               icon,
               color: isSelected
                   ? AppColors.primary
-                  : AppColors.secondary.withOpacity(0.6),
+                  : AppColors.secondary.withValues(alpha: 0.6),
             ),
             const SizedBox(height: 4),
             Text(
               label,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isSelected
-                        ? AppColors.primary
-                        : AppColors.secondary.withOpacity(0.6),
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: isSelected
+                    ? AppColors.primary
+                    : AppColors.secondary.withValues(alpha: 0.6),
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),

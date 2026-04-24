@@ -20,11 +20,11 @@ class AssetOverviewScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withOpacity(0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         centerTitle: true,
         title: Text(
           '资产概览',
@@ -97,7 +97,7 @@ class AssetOverviewScreen extends StatelessWidget {
               width: 128,
               height: 128,
               decoration: BoxDecoration(
-                color: AppColors.primaryFixed.withOpacity(0.2),
+                color: AppColors.primaryFixed.withValues(alpha: 0.2),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(100),
                   topRight: Radius.circular(12),
@@ -143,7 +143,7 @@ class AssetOverviewScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: AppColors.surfaceVariant.withOpacity(0.5),
+                        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
                       ),
                     ),
                   ),

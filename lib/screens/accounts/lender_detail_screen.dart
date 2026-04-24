@@ -7,10 +7,7 @@ import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:provider/provider.dart';
 
 class LenderDetailScreen extends StatelessWidget {
-  const LenderDetailScreen({
-    super.key,
-    required this.lender,
-  });
+  const LenderDetailScreen({super.key, required this.lender});
 
   final Lender lender;
 
@@ -19,15 +16,17 @@ class LenderDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(
+          alpha: 0.9,
+        ),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
           '借贷人详情',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       body: Consumer<TransactionProvider>(
@@ -42,11 +41,13 @@ class LenderDetailScreen extends StatelessWidget {
               children: [
                 _buildHeader(context),
                 const SizedBox(height: 24),
+                _buildStatsSection(context, related),
+                const SizedBox(height: 24),
                 Text(
                   '关联账单',
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: AppColors.onSurface,
-                      ),
+                    color: AppColors.onSurface,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 if (related.isEmpty)
@@ -82,24 +83,26 @@ class LenderDetailScreen extends StatelessWidget {
         children: [
           Text(
             lender.name,
-            style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                  color: AppColors.onSurface,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
           ),
           const SizedBox(height: 18),
           Text(
             isReceivable ? '当前应收' : '当前应付',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.onSurfaceVariant,
-                ),
+              color: AppColors.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 4),
           PrivacyAmountText(
             amount: lender.balance.abs(),
             prefix: '¥ ',
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                  color: isReceivable ? AppColors.primaryContainer : AppColors.tertiary,
-                ),
+              color: isReceivable
+                  ? AppColors.primaryContainer
+                  : AppColors.tertiary,
+            ),
           ),
         ],
       ),
@@ -117,9 +120,155 @@ class LenderDetailScreen extends StatelessWidget {
       child: Text(
         '当前借贷人暂无关联账单',
         textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant),
+      ),
+    );
+  }
+
+  Widget _buildStatsSection(
+    BuildContext context,
+    List<TransactionRecord> related,
+  ) {
+    double totalBorrow = 0;
+    double totalLend = 0;
+    final monthlyNet = <String, double>{};
+    for (final item in related) {
+      final amount = item.type == TransactionType.borrow
+          ? -item.amount
+          : item.amount;
+      if (item.type == TransactionType.borrow) {
+        totalBorrow += item.amount;
+      } else {
+        totalLend += item.amount;
+      }
+      final monthKey =
+          '${item.date.year}-${item.date.month.toString().padLeft(2, '0')}';
+      monthlyNet[monthKey] = (monthlyNet[monthKey] ?? 0) + amount;
+    }
+    final trend = monthlyNet.entries.toList(growable: false)
+      ..sort((a, b) => a.key.compareTo(b.key));
+    final recentTwo = trend.length <= 2
+        ? trend
+        : trend.sublist(trend.length - 2);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '统计概览',
+          style: Theme.of(
+            context,
+          ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                context: context,
+                title: '累计借出',
+                amount: totalLend,
+                color: AppColors.primaryContainer,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildStatCard(
+                context: context,
+                title: '累计借入',
+                amount: totalBorrow,
+                color: AppColors.tertiary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '月度净往来趋势',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (recentTwo.isEmpty)
+                Text(
+                  '暂无数据',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.onSurfaceVariant,
+                  ),
+                )
+              else
+                ...recentTwo.map(
+                  (entry) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Expanded(child: Text(entry.key)),
+                        PrivacyAmountText(
+                          amount: entry.value.abs(),
+                          sign: entry.value >= 0 ? '+' : '-',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: entry.value >= 0
+                                    ? AppColors.primaryContainer
+                                    : AppColors.tertiary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required BuildContext context,
+    required String title,
+    required double amount,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.onSurfaceVariant,
             ),
+          ),
+          const SizedBox(height: 8),
+          PrivacyAmountText(
+            amount: amount,
+            prefix: '¥ ',
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -127,7 +276,9 @@ class LenderDetailScreen extends StatelessWidget {
   Widget _buildRecordItem(BuildContext context, TransactionRecord record) {
     final isBorrow = record.type == TransactionType.borrow;
     final actionLabel = isBorrow ? '借入' : '借出';
-    final amountColor = isBorrow ? AppColors.primaryContainer : AppColors.onSurface;
+    final amountColor = isBorrow
+        ? AppColors.primaryContainer
+        : AppColors.onSurface;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -145,16 +296,16 @@ class LenderDetailScreen extends StatelessWidget {
                 Text(
                   '$actionLabel • ${record.accountName}',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.onSurface,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${record.date.year}-${record.date.month.toString().padLeft(2, '0')}-${record.date.day.toString().padLeft(2, '0')} ${record.date.hour.toString().padLeft(2, '0')}:${record.date.minute.toString().padLeft(2, '0')} • ${record.note.isEmpty ? '无备注' : record.note}',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -164,9 +315,9 @@ class LenderDetailScreen extends StatelessWidget {
             amount: record.amount,
             sign: isBorrow ? '-' : '+',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: amountColor,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: amountColor,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),

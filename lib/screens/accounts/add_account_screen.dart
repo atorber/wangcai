@@ -38,7 +38,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     return Scaffold(
       backgroundColor: AppColors.surfaceBright,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceBright.withOpacity(0.9),
+        backgroundColor: AppColors.surfaceBright.withValues(alpha: 0.9),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
@@ -121,7 +121,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
           width: 96,
           height: 2,
           decoration: BoxDecoration(
-            color: AppColors.primary.withOpacity(0.2),
+            color: AppColors.primary.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(1),
           ),
         ),
@@ -265,7 +265,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
           borderRadius: BorderRadius.circular(24),
         ),
         elevation: 8,
-        shadowColor: AppColors.primary.withOpacity(0.2),
+        shadowColor: AppColors.primary.withValues(alpha: 0.2),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,

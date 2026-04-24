@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:finance_app/models/app_backup_bundle.dart';
 import 'package:finance_app/providers/app_settings_provider.dart';
 import 'package:finance_app/providers/account_provider.dart';
+import 'package:finance_app/providers/budget_provider.dart';
 import 'package:finance_app/providers/category_provider.dart';
 import 'package:finance_app/providers/security_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
@@ -33,18 +34,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withOpacity(0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(
+          alpha: 0.9,
+        ),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         centerTitle: true,
         title: Text(
           '设置',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: AppColors.primary,
-              ),
+            fontWeight: FontWeight.w500,
+            color: AppColors.primary,
+          ),
         ),
         actions: [
           IconButton(
@@ -126,9 +129,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 16),
                 Text(
                   settings.profileName,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -141,8 +144,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   '点击编辑资料',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -246,9 +249,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Text(
                         settings.themeModeLabel(),
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                              color: AppColors.secondary,
-                            ),
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(color: AppColors.secondary),
                       ),
                       const SizedBox(width: 4),
                       const Icon(
@@ -341,9 +343,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Icons.info_outline,
             '关于',
             onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AboutScreen()),
-              );
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const AboutScreen()));
             },
           ),
         ),
@@ -392,7 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildDivider() {
     return Container(
       height: 0.5,
-      color: AppColors.outlineVariant.withOpacity(0.5),
+      color: AppColors.outlineVariant.withValues(alpha: 0.5),
       margin: const EdgeInsets.symmetric(horizontal: 16),
     );
   }
@@ -548,10 +550,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final file = await openFile(
         acceptedTypeGroups: const [
-          XTypeGroup(
-            label: 'json',
-            extensions: ['json'],
-          ),
+          XTypeGroup(label: 'json', extensions: ['json']),
         ],
       );
       if (file == null) {
@@ -600,15 +599,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await transactionProvider.replaceAll(bundle.transactions);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('导入成功，已覆盖本地数据')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('导入成功，已覆盖本地数据')));
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('导入失败：$error')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('导入失败：$error')));
       }
     } finally {
       if (mounted) {
@@ -692,7 +691,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _showEditProfileDialog(BuildContext context) async {
     final settings = context.read<AppSettingsProvider>();
     final nameController = TextEditingController(text: settings.profileName);
-    final taglineController = TextEditingController(text: settings.profileTagline);
+    final taglineController = TextEditingController(
+      text: settings.profileTagline,
+    );
     final shouldSave = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -734,9 +735,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final tagline = taglineController.text.trim();
       if (name.isEmpty || tagline.isEmpty) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('昵称和签名不能为空')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('昵称和签名不能为空')));
         }
       } else {
         await settings.updateProfile(name: name, tagline: tagline);
@@ -771,12 +772,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final accountProvider = context.read<AccountProvider>();
     final categoryProvider = context.read<CategoryProvider>();
     final transactionProvider = context.read<TransactionProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
     final securityProvider = context.read<SecurityProvider>();
     final appSettingsProvider = context.read<AppSettingsProvider>();
 
     await accountProvider.replaceAll(const []);
     await accountProvider.replaceLenders(const []);
     await categoryProvider.replaceAll(const []);
+    await budgetProvider.replaceAll(const []);
     await transactionProvider.replaceAll(const []);
     await securityProvider.setAppLockEnabled(false);
     await securityProvider.setBiometricEnabled(false);
@@ -791,8 +794,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('本地数据已清空')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('本地数据已清空')));
   }
 }

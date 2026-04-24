@@ -38,11 +38,11 @@ class _WebDavBackupSetupScreenState extends State<WebDavBackupSetupScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withOpacity(0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => Navigator.of(context).pop(),
@@ -82,7 +82,7 @@ class _WebDavBackupSetupScreenState extends State<WebDavBackupSetupScreen> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: AppColors.primaryContainer.withOpacity(0.1),
+            color: AppColors.primaryContainer.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(Icons.cloud_sync, color: AppColors.primaryContainer, size: 28),

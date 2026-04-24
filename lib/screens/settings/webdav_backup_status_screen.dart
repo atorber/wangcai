@@ -32,11 +32,11 @@ class _WebDavBackupStatusScreenState extends State<WebDavBackupStatusScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withOpacity(0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
-        shadowColor: Colors.black.withOpacity(0.04),
+        shadowColor: Colors.black.withValues(alpha: 0.04),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.primary),
           onPressed: () => Navigator.of(context).pop(),
