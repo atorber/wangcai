@@ -31,7 +31,7 @@ jobs:
           NEXT_PATCH="${PATCH}"
           while true; do
             CANDIDATE_TAG="v${MAJOR}.${MINOR}.${NEXT_PATCH}"
-            if git ls-remote --tags origin "refs/tags/${CANDIDATE_TAG}" | rg -q .; then
+            if git ls-remote --tags origin "refs/tags/${CANDIDATE_TAG}" | grep -q .; then
               NEXT_PATCH="$((NEXT_PATCH + 1))"
             else
               break
