@@ -79,79 +79,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  /// 仅展示应用标识；本地工具无账户，不提供可编辑「资料」。
   Widget _buildProfileSummary(BuildContext context) {
-    return Consumer<AppSettingsProvider>(
-      builder: (context, settings, _) {
-        return InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () => _showEditProfileDialog(context),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 24),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 96,
+            height: 96,
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(12),
+              shape: BoxShape.circle,
+              color: AppColors.primaryFixed,
+              border: Border.all(
+                color: AppColors.surfaceContainerLowest,
+                width: 4,
+              ),
               boxShadow: const [
                 BoxShadow(
-                  color: Color(0x0A000000),
-                  blurRadius: 20,
-                  offset: Offset(0, 4),
+                  color: Color(0x1A000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
                 ),
               ],
             ),
-            child: Column(
-              children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primaryFixed,
-                    border: Border.all(
-                      color: AppColors.surfaceContainerLowest,
-                      width: 4,
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x1A000000),
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.savings_outlined,
-                    color: AppColors.primary,
-                    size: 44,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  settings.profileName,
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                    color: AppColors.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  settings.profileTagline,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: AppColors.secondary),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '点击编辑资料',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-                ),
-              ],
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.savings_outlined,
+              color: AppColors.primary,
+              size: 44,
             ),
           ),
-        );
-      },
+          const SizedBox(height: 16),
+          Text(
+            '旺财',
+            style: Theme.of(context).textTheme.displayMedium?.copyWith(
+              color: AppColors.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '本地记账，数据只留在本机',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.secondary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -688,65 +674,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Future<void> _showEditProfileDialog(BuildContext context) async {
-    final settings = context.read<AppSettingsProvider>();
-    final nameController = TextEditingController(text: settings.profileName);
-    final taglineController = TextEditingController(
-      text: settings.profileTagline,
-    );
-    final shouldSave = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('编辑资料'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: '昵称',
-                hintText: '请输入昵称',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: taglineController,
-              decoration: const InputDecoration(
-                labelText: '签名',
-                hintText: '请输入签名',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
-    );
-    if (shouldSave == true) {
-      final name = nameController.text.trim();
-      final tagline = taglineController.text.trim();
-      if (name.isEmpty || tagline.isEmpty) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('昵称和签名不能为空')));
-        }
-      } else {
-        await settings.updateProfile(name: name, tagline: tagline);
-      }
-    }
-    nameController.dispose();
-    taglineController.dispose();
-  }
-
   Future<void> _showClearLocalDataDialog(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -785,10 +712,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await securityProvider.setBiometricEnabled(false);
     await securityProvider.setPrivacyModeEnabled(false);
     await appSettingsProvider.setThemeMode(ThemeMode.system);
-    await appSettingsProvider.updateProfile(
-      name: '旺财',
-      tagline: '本地优先 · 数据自主可控',
-    );
 
     if (!context.mounted) {
       return;
