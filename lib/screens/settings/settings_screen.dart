@@ -1,11 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:finance_app/models/app_backup_bundle.dart';
+import 'package:finance_app/providers/account_provider.dart';
+import 'package:finance_app/providers/category_provider.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/screens/settings/category_management_screen.dart';
 import 'package:finance_app/screens/settings/security_privacy_screen.dart';
+import 'package:finance_app/services/data_export_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
-import 'package:finance_app/screens/settings/github_sync_setup_screen.dart' as finance_sync_setup;
+import 'package:finance_app/screens/settings/github_sync_setup_screen.dart'
+    as finance_webdav_setup;
+import 'package:provider/provider.dart';
 
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  bool _isExporting = false;
 
   @override
   Widget build(BuildContext context) {
@@ -17,41 +31,23 @@ class SettingsScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
         shadowColor: Colors.black.withOpacity(0.04),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.surfaceContainer,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Image.network(
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDn1Sb7I1cqJaCPTTBaGihmjkruba2PNv5-6HYTWdwR9A9-sPrv_xETico3RKMac_WyIovqs8NVomTLa3kYcTrKvtRT6MlsF_t6farKWJzM2cxRZV4SAv7TjnHTDiE4txZuZKbgnll4RbwAEck84BUpvC9BWNAFVPDrAmCWpR4hgGqXRWkQ7J77zdPsY7qvSpCZ1iskHaMzIQbWXLO01HzGRFd9NKFyeDhSrdAO3zFJYGOgMso8ZUuW-KVOHW-w-e-u3hC86X4snJyb',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 20),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  '财务',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
-                      ),
-                ),
-              ],
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: AppColors.primary),
-              onPressed: () {},
-            ),
-          ],
+        centerTitle: true,
+        title: Text(
+          '设置',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppColors.primary,
+              ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.notifications_none,
+              color: AppColors.primary,
+            ),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
@@ -85,63 +81,49 @@ class SettingsScreen extends StatelessWidget {
             color: Color(0x0A000000),
             blurRadius: 20,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
         children: [
-          Stack(
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.surfaceContainerLowest, width: 4),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x1A000000),
-                      blurRadius: 4,
-                      offset: Offset(0, 1),
-                    )
-                  ],
-                ),
-                child: ClipOval(
-                  child: Image.network(
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuAgHOfKrhzCg_YqzdqZ6NFVx-7jl5NyMIK8VTCJtQl5KoELdKCAuQYhJgU_8_xBOZLu9JaPzk8oOTicbVCERmRWfo8OhjJSMTNkjer9tAdUjfqknEhW_26eYyPY_cgxIkJ_JBntxCvxUyRbyB2fmLJPM-zYqkDDfDmh7RhMPRG67mBrLiOY2iJepkTW1YzUlFvhLKMTvxmgwBDhk0T5JWSDcbqyolcIhKJn-2Xv3R1KzEGUZ3Vnt5JbVBoLMYHOk-3Ma9CrnCIRKoNW',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 48),
-                  ),
-                ),
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primaryFixed,
+              border: Border.all(
+                color: AppColors.surfaceContainerLowest,
+                width: 4,
               ),
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.surfaceContainerLowest, width: 2),
-                  ),
-                  child: const Icon(Icons.edit, color: AppColors.onPrimary, size: 14),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1A000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
                 ),
-              ),
-            ],
+              ],
+            ),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.savings_outlined,
+              color: AppColors.primary,
+              size: 44,
+            ),
           ),
           const SizedBox(height: 16),
           Text(
-            'Alex Thompson',
-            style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                  color: AppColors.onSurface,
-                ),
+            '旺财',
+            style: Theme.of(
+              context,
+            ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
           ),
           const SizedBox(height: 4),
           Text(
-            '高级会员',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.secondary,
-                ),
+            '本地优先 · 数据自主可控',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.secondary),
           ),
         ],
       ),
@@ -157,9 +139,9 @@ class SettingsScreen extends StatelessWidget {
           child: Text(
             '偏好设置',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.secondary,
-                  letterSpacing: 2,
-                ),
+              color: AppColors.secondary,
+              letterSpacing: 2,
+            ),
           ),
         ),
         Container(
@@ -171,7 +153,7 @@ class SettingsScreen extends StatelessWidget {
                 color: Color(0x0A000000),
                 blurRadius: 20,
                 offset: Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: Column(
@@ -189,16 +171,29 @@ class SettingsScreen extends StatelessWidget {
                 },
               ),
               _buildDivider(),
-              _buildSettingsItem(context, Icons.ios_share, '导出数据'),
+              _buildSettingsItem(
+                context,
+                Icons.ios_share,
+                '导出数据',
+                onTap: _isExporting ? () {} : () => _showExportSheet(context),
+                trailing: _isExporting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : null,
+              ),
               _buildDivider(),
               _buildSettingsItem(
                 context,
                 Icons.sync,
-                '同步到 GitHub',
+                'WebDAV 云备份',
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => const finance_sync_setup.GithubSyncSetupScreen(),
+                      builder: (_) =>
+                          const finance_webdav_setup.WebDavBackupSetupScreen(),
                     ),
                   );
                 },
@@ -214,11 +209,15 @@ class SettingsScreen extends StatelessWidget {
                     Text(
                       '浅色',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: AppColors.secondary,
-                          ),
+                        color: AppColors.secondary,
+                      ),
                     ),
                     const SizedBox(width: 4),
-                    const Icon(Icons.chevron_right, color: AppColors.secondary, size: 20),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppColors.secondary,
+                      size: 20,
+                    ),
                   ],
                 ),
               ),
@@ -238,9 +237,9 @@ class SettingsScreen extends StatelessWidget {
           child: Text(
             '安全与隐私',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.secondary,
-                  letterSpacing: 2,
-                ),
+              color: AppColors.secondary,
+              letterSpacing: 2,
+            ),
           ),
         ),
         Container(
@@ -252,7 +251,7 @@ class SettingsScreen extends StatelessWidget {
                 color: Color(0x0A000000),
                 blurRadius: 20,
                 offset: Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: _buildSettingsItem(
@@ -281,9 +280,9 @@ class SettingsScreen extends StatelessWidget {
           child: Text(
             '支持',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.secondary,
-                  letterSpacing: 2,
-                ),
+              color: AppColors.secondary,
+              letterSpacing: 2,
+            ),
           ),
         ),
         Container(
@@ -295,7 +294,7 @@ class SettingsScreen extends StatelessWidget {
                 color: Color(0x0A000000),
                 blurRadius: 20,
                 offset: Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: _buildSettingsItem(context, Icons.info_outline, '关于'),
@@ -324,13 +323,18 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(width: 16),
                 Text(
                   label,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.onSurface,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: AppColors.onSurface),
                 ),
               ],
             ),
-            trailing ?? const Icon(Icons.chevron_right, color: AppColors.secondary, size: 20),
+            trailing ??
+                const Icon(
+                  Icons.chevron_right,
+                  color: AppColors.secondary,
+                  size: 20,
+                ),
           ],
         ),
       ),
@@ -358,10 +362,145 @@ class SettingsScreen extends StatelessWidget {
       ),
       child: Text(
         '退出登录',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: AppColors.error,
-            ),
+        style: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(color: AppColors.error),
       ),
+    );
+  }
+
+  Future<void> _showExportSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceContainerLowest,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '选择导出格式',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: AppColors.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'JSON 包含完整备份数据，CSV 便于表格查看。',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: AppColors.secondary),
+                ),
+                const SizedBox(height: 12),
+                _buildExportOptionTile(
+                  context: context,
+                  icon: Icons.data_object,
+                  label: '导出 JSON',
+                  subtitle: '完整数据备份',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _exportData(ExportFormat.json);
+                  },
+                ),
+                _buildDivider(),
+                _buildExportOptionTile(
+                  context: context,
+                  icon: Icons.table_view,
+                  label: '导出 CSV',
+                  subtitle: '可用 Excel 打开',
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _exportData(ExportFormat.csv);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildExportOptionTile({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: AppColors.primary),
+      title: Text(
+        label,
+        style: Theme.of(
+          context,
+        ).textTheme.bodyLarge?.copyWith(color: AppColors.onSurface),
+      ),
+      subtitle: Text(
+        subtitle,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(color: AppColors.secondary),
+      ),
+      trailing: const Icon(
+        Icons.chevron_right,
+        color: AppColors.secondary,
+        size: 20,
+      ),
+      onTap: onTap,
+    );
+  }
+
+  Future<void> _exportData(ExportFormat format) async {
+    setState(() {
+      _isExporting = true;
+    });
+    try {
+      final bundle = _buildBackupBundle();
+      await DataExportService.export(bundle: bundle, format: format);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(format == ExportFormat.json ? 'JSON 导出成功' : 'CSV 导出成功'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('导出失败：$error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
+  AppBackupBundle _buildBackupBundle() {
+    final accountProvider = context.read<AccountProvider>();
+    final categoryProvider = context.read<CategoryProvider>();
+    final transactionProvider = context.read<TransactionProvider>();
+    return AppBackupBundle(
+      version: 1,
+      exportedAt: DateTime.now(),
+      accounts: accountProvider.accounts,
+      lenders: accountProvider.lenders,
+      categories: categoryProvider.categories,
+      transactions: transactionProvider.transactions,
     );
   }
 }

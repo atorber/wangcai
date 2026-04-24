@@ -8,15 +8,15 @@ import 'package:finance_app/services/github_sync_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 
-class GithubSyncStatusScreen extends StatefulWidget {
-  const GithubSyncStatusScreen({super.key});
+class WebDavBackupStatusScreen extends StatefulWidget {
+  const WebDavBackupStatusScreen({super.key});
 
   @override
-  State<GithubSyncStatusScreen> createState() => _GithubSyncStatusScreenState();
+  State<WebDavBackupStatusScreen> createState() => _WebDavBackupStatusScreenState();
 }
 
-class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
-  GithubSyncConfig? _config;
+class _WebDavBackupStatusScreenState extends State<WebDavBackupStatusScreen> {
+  WebDavBackupConfig? _config;
   String? _lastSyncAt;
   bool _loading = true;
   bool _syncing = false;
@@ -42,32 +42,13 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'GitHub Sync',
+          'WebDAV 备份',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: AppColors.primary,
               ),
         ),
         centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.surfaceVariant,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Image.network(
-                'https://lh3.googleusercontent.com/aida-public/AB6AXuBUy4wiAIpIgepftbbisFvXzVzm-VQmuD1HPbCB7jgukm_IwE-BdgEeOzWg4kjjE9YNv3R3TMJWnlUAQRWnHXpazickgL66tDHmw4ikv6cEu2G8DGcikQPUNLZSonfMRNdKPIs8aFo5jlLVSBViWrK_3Lu3q3Af8i1FgF7YiQGjtVnEN_Eq_myKU84RTHJmWC79O2ldr6tV5zDVtZAo6z4UPtnViWVenSx9nigfrSyR4AwB_RhFgS9Yj8qFEcRfkzhBp3CRTwuZpllT',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 20),
-              ),
-            ),
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -115,7 +96,7 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
         ),
         const SizedBox(height: 24),
         Text(
-          _lastSyncAt == null ? '尚未同步' : '同步配置可用',
+          _lastSyncAt == null ? '尚未备份' : '备份配置可用',
           style: Theme.of(context).textTheme.displayMedium?.copyWith(
                 color: AppColors.onBackground,
               ),
@@ -144,7 +125,7 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '最后同步',
+                '最后备份',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.secondary,
                     ),
@@ -163,13 +144,13 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '目标仓库',
+                'WebDAV 服务',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.secondary,
                     ),
               ),
               Text(
-                _config == null ? '--' : '${_config!.owner}/${_config!.repo}',
+                _config?.serverUrl ?? '--',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.onSurface,
                       fontWeight: FontWeight.w500,
@@ -182,13 +163,13 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '云端文件',
+                '远端路径',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.secondary,
                     ),
               ),
               Text(
-                _config?.path ?? '--',
+                _config?.remotePath ?? '--',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.onSurface,
                       fontWeight: FontWeight.w500,
@@ -220,7 +201,7 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
               const Icon(Icons.cloud_upload, size: 20),
               const SizedBox(width: 8),
               Text(
-                '上传到 GitHub',
+                '立即备份到 WebDAV',
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: AppColors.onPrimary,
                     ),
@@ -243,7 +224,7 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
               const Icon(Icons.cloud_download, size: 20),
               const SizedBox(width: 8),
               Text(
-                '从 GitHub 下载覆盖本地',
+                '从 WebDAV 恢复覆盖本地',
                 style: Theme.of(context).textTheme.labelMedium,
               ),
             ],
@@ -254,8 +235,8 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
   }
 
   Future<void> _init() async {
-    final config = await GithubSyncService.loadConfig();
-    final lastSyncAt = await GithubSyncService.getLastSyncAt();
+    final config = await WebDavBackupService.loadConfig();
+    final lastSyncAt = await WebDavBackupService.getLastSyncAt();
     if (!mounted) {
       return;
     }
@@ -268,7 +249,7 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
 
   Future<void> _uploadNow() async {
     if (_config == null) {
-      _showMessage('请先在上一步保存 GitHub 配置');
+      _showMessage('请先在上一步保存 WebDAV 配置');
       return;
     }
     setState(() => _syncing = true);
@@ -281,12 +262,12 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
         categories: context.read<CategoryProvider>().categories,
         transactions: context.read<TransactionProvider>().transactions,
       );
-      await GithubSyncService.uploadBackup(_config!, bundle);
-      _lastSyncAt = await GithubSyncService.getLastSyncAt();
-      _showMessage('上传成功');
+      await WebDavBackupService.uploadBackup(_config!, bundle);
+      _lastSyncAt = await WebDavBackupService.getLastSyncAt();
+      _showMessage('备份成功');
       setState(() {});
     } catch (e) {
-      _showMessage('上传失败：$e');
+      _showMessage('备份失败：$e');
     } finally {
       if (mounted) {
         setState(() => _syncing = false);
@@ -296,7 +277,7 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
 
   Future<void> _downloadNow() async {
     if (_config == null) {
-      _showMessage('请先在上一步保存 GitHub 配置');
+      _showMessage('请先在上一步保存 WebDAV 配置');
       return;
     }
     final transactionProvider = context.read<TransactionProvider>();
@@ -304,18 +285,18 @@ class _GithubSyncStatusScreenState extends State<GithubSyncStatusScreen> {
     final categoryProvider = context.read<CategoryProvider>();
     setState(() => _syncing = true);
     try {
-      final bundle = await GithubSyncService.downloadBackup(_config!);
+      final bundle = await WebDavBackupService.downloadBackup(_config!);
       await accountProvider.replaceAll(bundle.accounts);
       await accountProvider.replaceLenders(bundle.lenders);
       await categoryProvider.replaceAll(bundle.categories);
       await transactionProvider.replaceAll(bundle.transactions);
-      _lastSyncAt = await GithubSyncService.getLastSyncAt();
+      _lastSyncAt = await WebDavBackupService.getLastSyncAt();
       _showMessage(
         '恢复完成：${bundle.transactions.length} 条账单，${bundle.accounts.length} 个账户，${bundle.lenders.length} 个借贷人，${bundle.categories.length} 个分类',
       );
       setState(() {});
     } catch (e) {
-      _showMessage('下载失败：$e');
+      _showMessage('恢复失败：$e');
     } finally {
       if (mounted) {
         setState(() => _syncing = false);

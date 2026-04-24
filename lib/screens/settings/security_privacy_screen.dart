@@ -36,6 +36,17 @@ class SecurityPrivacyScreen extends StatelessWidget {
                   SwitchListTile(
                     value: securityProvider.appLockEnabled,
                     onChanged: (value) async {
+                      if (value && !securityProvider.hasPinCode) {
+                        await _showPinDialog(context, securityProvider);
+                        if (!securityProvider.hasPinCode) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('请先设置 PIN 码，再启用应用锁')),
+                            );
+                          }
+                          return;
+                        }
+                      }
                       await securityProvider.setAppLockEnabled(value);
                     },
                     title: const Text('启用应用锁'),
@@ -79,7 +90,7 @@ class SecurityPrivacyScreen extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                '说明：当前版本已支持配置和本地保存。生物识别系统校验可在后续版本接入。',
+                '说明：启用应用锁后，冷启动和回到前台都需要进行身份验证。',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),

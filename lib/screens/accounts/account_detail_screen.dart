@@ -6,6 +6,7 @@ import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/screens/add/add_transaction_screen.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:provider/provider.dart';
 
 class AccountDetailScreen extends StatelessWidget {
@@ -104,8 +105,9 @@ class AccountDetailScreen extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '¥ ${account.balance.toStringAsFixed(2)}',
+          PrivacyAmountText(
+            amount: account.balance,
+            prefix: '¥ ',
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
                   color: account.balance >= 0 ? AppColors.primary : AppColors.tertiary,
                 ),
@@ -192,8 +194,9 @@ class AccountDetailScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              '${isIncome ? '+' : '-'}¥${record.amount.toStringAsFixed(2)}',
+            PrivacyAmountText(
+              amount: record.amount,
+              sign: isIncome ? '+' : '-',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: isIncome ? AppColors.primaryContainer : AppColors.onSurface,
                     fontWeight: FontWeight.w600,

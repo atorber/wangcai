@@ -7,6 +7,7 @@ import 'package:finance_app/screens/accounts/lender_detail_screen.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:finance_app/screens/accounts/add_account_screen.dart' as finance_add_account;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
@@ -24,36 +25,20 @@ class AssetOverviewScreen extends StatelessWidget {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
         shadowColor: Colors.black.withOpacity(0.04),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.surfaceContainer,
+        centerTitle: true,
+        title: Text(
+          '资产概览',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
               ),
-              clipBehavior: Clip.antiAlias,
-              child: Image.network(
-                'https://lh3.googleusercontent.com/aida-public/AB6AXuBZPiQ_nKpawLcCQnhtCKwJ8XysvzPmvlnx6tpM9ie10nbyLyH1bfm1o7pJwlA5DX1pkaYHX3V65c_6zG4RORhSn1Y4GKjtPUpvAzFz4BPpl33TawbahgLZ5dumnc2I-b302VabuZIXfUK4OWIR9WS9VvVcXVu949ocag4oZnoCKtJZSa8p7GrYwBWvYnCSSdwLXCyeWLY_BDdNaQWgujUSH2Gx_9ZKiC2kayq0dbB9lovSbF-IIQTvnTCvCuATApzqVdt8-C5x_g-0',
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Icon(Icons.person),
-              ),
-            ),
-            Text(
-              '资产概览',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primary,
-                  ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: AppColors.primaryContainer),
-              onPressed: () {},
-            ),
-          ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: AppColors.primaryContainer),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
@@ -143,8 +128,9 @@ class AssetOverviewScreen extends StatelessWidget {
                           ),
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      _formatMoney(accountProvider.totalAssets),
+                    PrivacyAmountText(
+                      amount: accountProvider.totalAssets,
+                      prefix: '',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(
                             color: AppColors.primary,
                           ),
@@ -174,8 +160,9 @@ class AssetOverviewScreen extends StatelessWidget {
                                   ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '¥ ${_formatMoney(accountProvider.netAssets)}',
+                            PrivacyAmountText(
+                              amount: accountProvider.netAssets,
+                              prefix: '¥ ',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: AppColors.onSurface,
                                   ),
@@ -195,8 +182,9 @@ class AssetOverviewScreen extends StatelessWidget {
                                   ),
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '¥ ${_formatMoney(accountProvider.totalLiabilities)}',
+                            PrivacyAmountText(
+                              amount: accountProvider.totalLiabilities,
+                              prefix: '¥ ',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: AppColors.tertiary,
                                   ),
@@ -348,8 +336,9 @@ class AssetOverviewScreen extends StatelessWidget {
                         color: AppColors.onSurfaceVariant,
                       ),
                 ),
-                Text(
-                  '¥ ${_formatMoney(lender.balance.abs())}',
+                PrivacyAmountText(
+                  amount: lender.balance.abs(),
+                  prefix: '¥ ',
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
                         color: isReceivable ? AppColors.primaryContainer : AppColors.tertiary,
                       ),
@@ -390,7 +379,7 @@ class AssetOverviewScreen extends StatelessWidget {
       title: account.typeLabel,
       subtitle: account.name,
       balanceLabel: account.isLiability ? '负债' : '余额',
-      balance: '¥ ${_formatMoney(account.balance)}',
+      balanceAmount: account.balance,
       balanceColor: account.isLiability ? AppColors.tertiary : AppColors.onSurface,
       tag: account.subtitle.isNotEmpty ? account.subtitle : null,
       onEdit: () => _showEditAccountDialog(context, account),
@@ -412,7 +401,7 @@ class AssetOverviewScreen extends StatelessWidget {
     required String subtitle,
     String? tag,
     required String balanceLabel,
-    required String balance,
+    required double balanceAmount,
     Color balanceColor = AppColors.onSurface,
     VoidCallback? onTap,
     VoidCallback? onEdit,
@@ -504,8 +493,9 @@ class AssetOverviewScreen extends StatelessWidget {
                         color: AppColors.onSurfaceVariant,
                       ),
                 ),
-                Text(
-                  balance,
+                PrivacyAmountText(
+                  amount: balanceAmount,
+                  prefix: '¥ ',
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
                         color: balanceColor,
                       ),
@@ -586,10 +576,6 @@ class AssetOverviewScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _formatMoney(double value) {
-    return value.toStringAsFixed(2);
   }
 
   (Color, Color) _colorForType(AccountType type) {

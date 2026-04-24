@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:finance_app/providers/security_provider.dart';
+import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/services/stats_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:finance_app/widgets/privacy_amount_text.dart';
+import 'package:provider/provider.dart';
 
 class FinancialStatsScreen extends StatefulWidget {
   const FinancialStatsScreen({super.key});
@@ -10,8 +15,16 @@ class FinancialStatsScreen extends StatefulWidget {
 }
 
 class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
-  int _selectedPeriodIndex = 0;
-  final List<String> _periods = ['周', '月', '年'];
+  StatsPeriod _period = StatsPeriod.month;
+
+  static const List<Color> _palette = [
+    AppColors.primaryContainer,
+    AppColors.primaryFixedDim,
+    AppColors.tertiaryContainer,
+    AppColors.tertiaryFixedDim,
+    AppColors.secondary,
+    AppColors.primary,
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -23,56 +36,45 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
         shadowColor: Colors.black.withOpacity(0.04),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
+        centerTitle: true,
+        title: Text(
+          '统计',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w500,
+                color: AppColors.primary,
+              ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_none, color: AppColors.primary),
+            onPressed: () {},
+          ),
+        ],
+      ),
+      body: Consumer<TransactionProvider>(
+        builder: (context, provider, _) {
+          final snapshot = StatsService.build(
+            transactions: provider.transactions,
+            period: _period,
+          );
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
               children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.primaryFixed,
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Image.network(
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuBshQbsLwXmCDoRkyGi1dtJPTD8YVoRLhCARHmf7w7gOOdMmnBeVKW78LxfSaj6-8WnrHfD_k33h6M74Onv1GEv8_7RdyFTEp5BO_gLOViAUK3ZReoOkgvTI_n8Eg9TdK-x5xf82ITpK08BDzWJYjK-oonA6-6GUfOMNJ0K_cpYVVFXm9KME1X1YBA8ujXC4QJJXdCuXnu52cYR0-iVmw3fEYo2_S7bslrXGdsBCbUBWaXQrmbpt9UMjDNS7BkxhJndxgtsHZ2DN3aK',
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, size: 20),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '财务',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary, // using emerald-900 equivalent
-                      ),
-                ),
+                _buildPeriodToggle(),
+                const SizedBox(height: 24),
+                _buildSummaryCard(snapshot),
+                const SizedBox(height: 24),
+                _buildDonutChartSection(snapshot),
+                const SizedBox(height: 24),
+                _buildSpendingTrendsSection(snapshot),
+                const SizedBox(height: 24),
+                _buildInsightsSection(snapshot),
+                const SizedBox(height: 80),
               ],
             ),
-            IconButton(
-              icon: const Icon(Icons.notifications_none, color: AppColors.primary),
-              onPressed: () {},
-            ),
-          ],
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            _buildPeriodToggle(),
-            const SizedBox(height: 32),
-            _buildDonutChartSection(),
-            const SizedBox(height: 32),
-            _buildSpendingTrendsSection(),
-            const SizedBox(height: 32),
-            _buildInsightsSection(),
-            const SizedBox(height: 80), // Padding for bottom nav
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -85,13 +87,13 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        children: List.generate(_periods.length, (index) {
-          final isSelected = _selectedPeriodIndex == index;
+        children: StatsPeriod.values.map((period) {
+          final isSelected = _period == period;
           return Expanded(
             child: GestureDetector(
               onTap: () {
                 setState(() {
-                  _selectedPeriodIndex = index;
+                  _period = period;
                 });
               },
               child: AnimatedContainer(
@@ -111,7 +113,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                       )
                     : null,
                 child: Text(
-                  _periods[index],
+                  period.label,
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: isSelected ? AppColors.primary : AppColors.onSurfaceVariant,
@@ -120,12 +122,112 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
               ),
             ),
           );
-        }),
+        }).toList(growable: false),
       ),
     );
   }
 
-  Widget _buildDonutChartSection() {
+  Widget _buildSummaryCard(StatsSnapshot snapshot) {
+    final balance = snapshot.totalIncome - snapshot.totalExpense;
+    final balanceColor = balance >= 0 ? AppColors.primary : AppColors.tertiary;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A000000),
+            blurRadius: 20,
+            offset: Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _rangeLabel(snapshot),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppColors.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '结余',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+              ),
+              const SizedBox(width: 8),
+              PrivacyAmountText(
+                amount: balance,
+                style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      color: balanceColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildKeyFigure(
+                  label: '收入',
+                  amount: snapshot.totalIncome,
+                  color: AppColors.primaryContainer,
+                ),
+              ),
+              Container(width: 1, height: 32, color: AppColors.surfaceContainer),
+              Expanded(
+                child: _buildKeyFigure(
+                  label: '支出',
+                  amount: snapshot.totalExpense,
+                  color: AppColors.onSurface,
+                  prefix: '-',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeyFigure({
+    required String label,
+    required double amount,
+    required Color color,
+    String prefix = '',
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 4),
+        PrivacyAmountText(
+          amount: amount,
+          sign: prefix,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDonutChartSection(StatsSnapshot snapshot) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -149,88 +251,88 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            height: 192,
-            child: Stack(
-              children: [
-                PieChart(
-                  PieChartData(
-                    sectionsSpace: 0,
-                    centerSpaceRadius: 76,
-                    startDegreeOffset: -90,
-                    sections: [
-                      PieChartSectionData(
-                        color: AppColors.primaryContainer,
-                        value: 40,
-                        title: '',
-                        radius: 16,
-                      ),
-                      PieChartSectionData(
-                        color: AppColors.primaryFixedDim,
-                        value: 25,
-                        title: '',
-                        radius: 16,
-                      ),
-                      PieChartSectionData(
-                        color: AppColors.tertiaryContainer,
-                        value: 20,
-                        title: '',
-                        radius: 16,
-                      ),
-                      PieChartSectionData(
-                        color: AppColors.tertiaryFixedDim,
-                        value: 15,
-                        title: '',
-                        radius: 16,
-                      ),
-                    ],
+          if (!snapshot.hasExpense)
+            _buildEmptyChart('当前周期暂无支出记录')
+          else ...[
+            SizedBox(
+              height: 192,
+              child: Stack(
+                children: [
+                  PieChart(
+                    PieChartData(
+                      sectionsSpace: 0,
+                      centerSpaceRadius: 76,
+                      startDegreeOffset: -90,
+                      sections: _pieSections(snapshot),
+                    ),
                   ),
-                ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '总计',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: AppColors.onSurfaceVariant,
-                            ),
-                      ),
-                      Text(
-                        '\$2,840',
-                        style: Theme.of(context).textTheme.displayMedium,
-                      ),
-                    ],
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '总计',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: AppColors.onSurfaceVariant,
+                              ),
+                        ),
+                        PrivacyAmountText(
+                          amount: snapshot.totalExpense,
+                          decimalDigits: 0,
+                          style: Theme.of(context).textTheme.displayMedium,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          _buildLegendGrid(),
+            const SizedBox(height: 24),
+            _buildLegendGrid(snapshot),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildLegendGrid() {
+  List<PieChartSectionData> _pieSections(StatsSnapshot snapshot) {
+    return List.generate(
+      snapshot.categoryBreakdown.length,
+      (index) {
+        final item = snapshot.categoryBreakdown[index];
+        return PieChartSectionData(
+          color: _palette[index % _palette.length],
+          value: item.amount,
+          title: '',
+          radius: 16,
+        );
+      },
+      growable: false,
+    );
+  }
+
+  Widget _buildLegendGrid(StatsSnapshot snapshot) {
+    final items = snapshot.categoryBreakdown.take(6).toList(growable: false);
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
       childAspectRatio: 3,
-      children: [
-        _buildLegendItem(AppColors.primaryContainer, '住房', '\$1,136 (40%)'),
-        _buildLegendItem(AppColors.primaryFixedDim, '餐饮', '\$710 (25%)'),
-        _buildLegendItem(AppColors.tertiaryContainer, '交通', '\$568 (20%)'),
-        _buildLegendItem(AppColors.tertiaryFixedDim, '其他', '\$426 (15%)'),
-      ],
+      children: List.generate(items.length, (index) {
+        final item = items[index];
+        return _buildLegendItem(
+          _palette[index % _palette.length],
+          item.category,
+          '¥${item.amount.toStringAsFixed(2)}',
+          '${(item.ratio * 100).toStringAsFixed(0)}%',
+        );
+      }),
     );
   }
 
-  Widget _buildLegendItem(Color color, String label, String value) {
+  Widget _buildLegendItem(Color color, String label, String amount, String ratio) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -244,28 +346,49 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
           ),
         ),
         const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    color: AppColors.onSurface,
-                  ),
-            ),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: AppColors.onSurfaceVariant,
-                  ),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.onSurface,
+                    ),
+              ),
+              Text(
+                '$amount · $ratio',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: AppColors.onSurfaceVariant,
+                    ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildSpendingTrendsSection() {
+  Widget _buildSpendingTrendsSection(StatsSnapshot snapshot) {
+    final deltaRatio = snapshot.expenseDeltaRatio;
+    final deltaPercentText = deltaRatio == null
+        ? '—'
+        : '${deltaRatio >= 0 ? '+' : '-'}${(deltaRatio.abs() * 100).toStringAsFixed(0)}%';
+    final deltaColor = deltaRatio == null
+        ? AppColors.onSurfaceVariant
+        : deltaRatio <= 0
+            ? AppColors.primary
+            : AppColors.tertiary;
+    final deltaIcon = deltaRatio == null
+        ? Icons.trending_flat
+        : deltaRatio <= 0
+            ? Icons.trending_down
+            : Icons.trending_up;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -289,57 +412,51 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('支出趋势', style: Theme.of(context).textTheme.displayMedium),
-                  Text('日均：¥92', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceVariant)),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Text(
+                        '日均：',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                      ),
+                      PrivacyAmountText(
+                        amount: snapshot.avgDailyExpense,
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
               Row(
                 children: [
-                  const Icon(Icons.trending_down, color: AppColors.primary, size: 18),
+                  Icon(deltaIcon, color: deltaColor, size: 18),
                   const SizedBox(width: 4),
-                  Text('减少12%', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.primary)),
+                  Text(
+                    deltaRatio == null ? '无对比数据' : '相比上一$_periodLabel $deltaPercentText',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(color: deltaColor),
+                  ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 32),
-          SizedBox(
-            height: 192,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildBar(0.4, '一', false),
-                _buildBar(0.65, '二', false),
-                _buildBar(0.9, '三', true),
-                _buildBar(0.55, '四', false),
-                _buildBar(0.75, '五', false),
-                _buildBar(0.45, '六', false),
-                _buildBar(0.3, '日', false),
-              ],
+          if (!snapshot.hasExpense)
+            _buildEmptyChart('暂无支出数据可绘制趋势')
+          else
+            SizedBox(
+              height: 192,
+              child: _buildTrendBars(snapshot),
             ),
-          ),
-          Container(
-            height: 1,
-            color: AppColors.surfaceContainerHighest,
-            margin: const EdgeInsets.only(bottom: 16),
-          ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.primaryContainer, shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  Text('今日', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.onSurfaceVariant)),
-                ],
-              ),
-              Row(
-                children: [
-                  Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.surfaceContainer, shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  Text('过往', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppColors.onSurfaceVariant)),
-                ],
-              ),
+              _buildLegendDot(AppColors.primaryContainer, '当前'),
+              _buildLegendDot(AppColors.surfaceContainer, '历史'),
             ],
           ),
         ],
@@ -347,85 +464,233 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     );
   }
 
-  Widget _buildBar(double heightFactor, String label, bool isToday) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: FractionallySizedBox(
-                  heightFactor: heightFactor,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: isToday ? AppColors.primaryContainer : AppColors.surfaceContainer,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                      boxShadow: isToday
-                          ? const [BoxShadow(color: Color(0x1A000000), blurRadius: 2, offset: Offset(0, -1))]
-                          : null,
+  Widget _buildTrendBars(StatsSnapshot snapshot) {
+    final points = snapshot.trendPoints;
+    final maxAmount = points.fold<double>(0, (p, e) => e.amount > p ? e.amount : p);
+    final showEveryNLabel = points.length > 12 ? (points.length / 12).ceil() : 1;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(points.length, (index) {
+        final point = points[index];
+        final height = maxAmount > 0 ? point.amount / maxAmount : 0.0;
+        final showLabel = index % showEveryNLabel == 0 ||
+            index == points.length - 1;
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: height.clamp(0.02, 1.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: point.isCurrent
+                              ? AppColors.primaryContainer
+                              : AppColors.surfaceContainer,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(6),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
+                const SizedBox(height: 8),
+                Text(
+                  showLabel ? point.label : '',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: point.isCurrent
+                            ? AppColors.onSurface
+                            : AppColors.onSurfaceVariant,
+                        fontWeight:
+                            point.isCurrent ? FontWeight.bold : FontWeight.w500,
+                      ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: isToday ? AppColors.onSurface : AppColors.onSurfaceVariant,
-                    fontWeight: isToday ? FontWeight.bold : FontWeight.w600,
-                  ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      }),
     );
   }
 
-  Widget _buildInsightsSection() {
+  Widget _buildLegendDot(Color color, String text) {
     return Row(
       children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.teal.shade50, // Approximation of emerald-50
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(Icons.savings_outlined, color: AppColors.primary),
-                const SizedBox(height: 8),
-                Text('预计可节省', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppColors.primary)),
-                Text('¥120.50', style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppColors.primary)),
-              ],
-            ),
-          ),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.red.shade50, // Approximation of rose-50
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.red.shade800),
-                const SizedBox(height: 8),
-                Text('支出超预算', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.red.shade800)),
-                Text('就餐', style: Theme.of(context).textTheme.displayMedium?.copyWith(color: Colors.red.shade800)),
-              ],
-            ),
-          ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
         ),
       ],
     );
   }
+
+  Widget _buildInsightsSection(StatsSnapshot snapshot) {
+    final insights = _buildInsights(snapshot);
+    if (insights.isEmpty) {
+      return _buildEmptyChart('积累更多账单后，这里会出现智能洞察');
+    }
+    return Row(
+      children: [
+        for (int i = 0; i < insights.length; i++) ...[
+          Expanded(child: insights[i]),
+          if (i != insights.length - 1) const SizedBox(width: 12),
+        ],
+      ],
+    );
+  }
+
+  List<Widget> _buildInsights(StatsSnapshot snapshot) {
+    final widgets = <Widget>[];
+
+    if (snapshot.expenseDeltaRatio != null) {
+      final delta = snapshot.expenseDeltaRatio!;
+      final isSaving = delta < 0;
+      final amount = (snapshot.previousTotalExpense - snapshot.totalExpense).abs();
+      widgets.add(
+        _buildInsightCard(
+          icon: isSaving ? Icons.savings_outlined : Icons.trending_up,
+          tone: isSaving ? _InsightTone.positive : _InsightTone.warning,
+          label: isSaving ? '相比上一$_periodLabel节省' : '相比上一$_periodLabel多花',
+          value: _privacyAmount(context, amount),
+        ),
+      );
+    }
+
+    if (snapshot.categoryBreakdown.isNotEmpty) {
+      final top = snapshot.categoryBreakdown.first;
+      widgets.add(
+        _buildInsightCard(
+          icon: Icons.pie_chart_outline,
+          tone: _InsightTone.neutral,
+          label: '支出最多',
+          value: top.category,
+          hint: '${_privacyAmount(context, top.amount, decimalDigits: 0)} · ${(top.ratio * 100).toStringAsFixed(0)}%',
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+  Widget _buildInsightCard({
+    required IconData icon,
+    required _InsightTone tone,
+    required String label,
+    required String value,
+    String? hint,
+  }) {
+    late final Color bgColor;
+    late final Color fgColor;
+    switch (tone) {
+      case _InsightTone.positive:
+        bgColor = AppColors.primaryFixed.withOpacity(0.35);
+        fgColor = AppColors.primary;
+        break;
+      case _InsightTone.warning:
+        bgColor = AppColors.tertiaryFixed.withOpacity(0.5);
+        fgColor = AppColors.tertiary;
+        break;
+      case _InsightTone.neutral:
+        bgColor = AppColors.surfaceContainer;
+        fgColor = AppColors.onSurface;
+        break;
+    }
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: fgColor),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(color: fgColor),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: fgColor,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          if (hint != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              hint,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: fgColor.withOpacity(0.72),
+                  ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyChart(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.onSurfaceVariant,
+            ),
+      ),
+    );
+  }
+
+  String get _periodLabel => _period.label;
+
+  String _rangeLabel(StatsSnapshot snapshot) {
+    switch (_period) {
+      case StatsPeriod.week:
+        final start = snapshot.rangeStart;
+        final end = snapshot.rangeEnd.subtract(const Duration(days: 1));
+        return '${_formatDate(start)} ~ ${_formatDate(end)}';
+      case StatsPeriod.month:
+        return '${snapshot.rangeStart.year} 年 ${snapshot.rangeStart.month} 月';
+      case StatsPeriod.year:
+        return '${snapshot.rangeStart.year} 年';
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  String _privacyAmount(
+    BuildContext context,
+    double amount, {
+    int decimalDigits = 2,
+  }) {
+    final enabled = context.select<SecurityProvider, bool>(
+      (provider) => provider.privacyModeEnabled,
+    );
+    if (enabled) {
+      return '¥****';
+    }
+    return '¥${amount.toStringAsFixed(decimalDigits)}';
+  }
 }
+
+enum _InsightTone { positive, warning, neutral }

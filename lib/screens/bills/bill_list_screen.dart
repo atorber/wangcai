@@ -5,6 +5,7 @@ import 'package:finance_app/models/transaction_record.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:provider/provider.dart';
 
 class BillListScreen extends StatefulWidget {
@@ -171,8 +172,9 @@ class _BillListScreenState extends State<BillListScreen> {
                 ],
               ),
             ),
-            Text(
-              '${isIncome ? '+' : '-'}¥${record.amount.toStringAsFixed(2)}',
+            PrivacyAmountText(
+              amount: record.amount,
+              sign: isIncome ? '+' : '-',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: isIncome ? AppColors.primaryContainer : AppColors.onSurface,
                     fontWeight: FontWeight.w600,

@@ -1,21 +1,19 @@
-class GithubSyncConfig {
-  const GithubSyncConfig({
-    required this.token,
-    required this.owner,
-    required this.repo,
-    required this.path,
-    this.branch = 'main',
+class WebDavBackupConfig {
+  const WebDavBackupConfig({
+    required this.serverUrl,
+    required this.username,
+    required this.password,
+    required this.remotePath,
   });
 
-  final String token;
-  final String owner;
-  final String repo;
-  final String path;
-  final String branch;
+  final String serverUrl;
+  final String username;
+  final String password;
+  final String remotePath;
 
   bool get isValid =>
-      token.trim().isNotEmpty &&
-      owner.trim().isNotEmpty &&
-      repo.trim().isNotEmpty &&
-      path.trim().isNotEmpty;
+      serverUrl.trim().isNotEmpty &&
+      username.trim().isNotEmpty &&
+      password.trim().isNotEmpty &&
+      remotePath.trim().isNotEmpty;
 }

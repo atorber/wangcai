@@ -5,6 +5,7 @@ import 'package:finance_app/theme/app_theme.dart';
 import 'package:finance_app/screens/main_layout.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/widgets/app_lock_gate.dart';
 import 'package:provider/provider.dart';
 
 void main() {
@@ -26,7 +27,7 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: '旺财',
         theme: AppTheme.lightTheme,
-        home: const MainLayout(),
+        home: const AppLockGate(child: MainLayout()),
       ),
     );
   }

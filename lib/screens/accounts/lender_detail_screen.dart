@@ -3,6 +3,7 @@ import 'package:finance_app/models/lender.dart';
 import 'package:finance_app/models/transaction_record.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:provider/provider.dart';
 
 class LenderDetailScreen extends StatelessWidget {
@@ -93,8 +94,9 @@ class LenderDetailScreen extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 4),
-          Text(
-            '¥ ${lender.balance.abs().toStringAsFixed(2)}',
+          PrivacyAmountText(
+            amount: lender.balance.abs(),
+            prefix: '¥ ',
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
                   color: isReceivable ? AppColors.primaryContainer : AppColors.tertiary,
                 ),
@@ -158,8 +160,9 @@ class LenderDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Text(
-            '${isBorrow ? '-' : '+'}¥${record.amount.toStringAsFixed(2)}',
+          PrivacyAmountText(
+            amount: record.amount,
+            sign: isBorrow ? '-' : '+',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: amountColor,
                   fontWeight: FontWeight.w600,

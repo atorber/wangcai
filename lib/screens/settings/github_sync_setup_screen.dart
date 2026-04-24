@@ -4,19 +4,18 @@ import 'package:finance_app/services/github_sync_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/screens/settings/github_sync_status_screen.dart' as finance_sync_status;
 
-class GithubSyncSetupScreen extends StatefulWidget {
-  const GithubSyncSetupScreen({super.key});
+class WebDavBackupSetupScreen extends StatefulWidget {
+  const WebDavBackupSetupScreen({super.key});
 
   @override
-  State<GithubSyncSetupScreen> createState() => _GithubSyncSetupScreenState();
+  State<WebDavBackupSetupScreen> createState() => _WebDavBackupSetupScreenState();
 }
 
-class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
-  final _tokenController = TextEditingController();
-  final _ownerController = TextEditingController();
-  final _repoController = TextEditingController();
-  final _pathController = TextEditingController(text: 'wangcai/records.json');
-  final _branchController = TextEditingController(text: 'main');
+class _WebDavBackupSetupScreenState extends State<WebDavBackupSetupScreen> {
+  final _serverUrlController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _pathController = TextEditingController(text: '/wangcai/records.json');
   bool _loading = true;
 
   @override
@@ -27,11 +26,10 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
 
   @override
   void dispose() {
-    _tokenController.dispose();
-    _ownerController.dispose();
-    _repoController.dispose();
+    _serverUrlController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     _pathController.dispose();
-    _branchController.dispose();
     super.dispose();
   }
 
@@ -50,27 +48,13 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'GitHub Sync',
+          'WebDAV 备份',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: AppColors.primary,
               ),
         ),
         centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.surfaceVariant,
-              ),
-              child: const Icon(Icons.person, color: AppColors.secondary, size: 20),
-            ),
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -105,14 +89,14 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          '配置 GitHub 同步',
+          '配置 WebDAV 备份',
           style: Theme.of(context).textTheme.displayLarge?.copyWith(
                 color: AppColors.onBackground,
               ),
         ),
         const SizedBox(height: 8),
         Text(
-          '填写 PAT 和仓库信息。后续可在状态页执行上传或下载。',
+          '填写 WebDAV 服务地址和账号信息。后续可在状态页执行备份或恢复。',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: AppColors.onSurfaceVariant,
                 height: 1.5,
@@ -128,7 +112,7 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Personal Access Token',
+            '服务地址',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: AppColors.onSurface,
                 ),
@@ -148,13 +132,13 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
               ],
             ),
             child: TextField(
-              controller: _tokenController,
-              obscureText: true,
+              controller: _serverUrlController,
+              keyboardType: TextInputType.url,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: AppColors.onSurface,
                   ),
               decoration: InputDecoration(
-                hintText: 'ghp_...',
+                hintText: '例如: https://dav.example.com/remote.php/dav/files/user',
                 hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.outline,
                     ),
@@ -168,19 +152,23 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          _buildInputField(context, label: '仓库所有者', hint: '例如: your-github-id', controller: _ownerController),
+          _buildInputField(context, label: '用户名', hint: '例如: user', controller: _usernameController),
           const SizedBox(height: 12),
-          _buildInputField(context, label: '仓库名', hint: '例如: finance-backup', controller: _repoController),
+          _buildInputField(
+            context,
+            label: '密码 / App Password',
+            hint: '请输入 WebDAV 密码',
+            controller: _passwordController,
+            obscureText: true,
+          ),
           const SizedBox(height: 12),
-          _buildInputField(context, label: '文件路径', hint: '例如: wangcai/records.json', controller: _pathController),
-          const SizedBox(height: 12),
-          _buildInputField(context, label: '分支', hint: 'main', controller: _branchController),
+          _buildInputField(context, label: '远端文件路径', hint: '例如: /wangcai/records.json', controller: _pathController),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '确保 Token 具有 repo 权限',
+                '确保 WebDAV 账号有读写权限',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.secondary,
                     ),
@@ -188,7 +176,7 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
               InkWell(
                 onTap: () {},
                 child: Text(
-                  '如何获取？',
+                  '查看示例',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
                         color: AppColors.primary,
                         decoration: TextDecoration.underline,
@@ -214,7 +202,7 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '保存并前往同步',
+                  '保存并前往备份',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: AppColors.onPrimary,
                       ),
@@ -234,6 +222,7 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
     required String label,
     required String hint,
     required TextEditingController controller,
+    bool obscureText = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,6 +242,7 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
           ),
           child: TextField(
             controller: controller,
+            obscureText: obscureText,
             decoration: InputDecoration(
               hintText: hint,
               border: InputBorder.none,
@@ -265,13 +255,12 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
   }
 
   Future<void> _loadConfig() async {
-    final config = await GithubSyncService.loadConfig();
+    final config = await WebDavBackupService.loadConfig();
     if (config != null) {
-      _tokenController.text = config.token;
-      _ownerController.text = config.owner;
-      _repoController.text = config.repo;
-      _pathController.text = config.path;
-      _branchController.text = config.branch;
+      _serverUrlController.text = config.serverUrl;
+      _usernameController.text = config.username;
+      _passwordController.text = config.password;
+      _pathController.text = config.remotePath;
     }
     if (mounted) {
       setState(() {
@@ -281,26 +270,25 @@ class _GithubSyncSetupScreenState extends State<GithubSyncSetupScreen> {
   }
 
   Future<void> _saveAndNext() async {
-    final config = GithubSyncConfig(
-      token: _tokenController.text.trim(),
-      owner: _ownerController.text.trim(),
-      repo: _repoController.text.trim(),
-      path: _pathController.text.trim(),
-      branch: _branchController.text.trim().isEmpty ? 'main' : _branchController.text.trim(),
+    final config = WebDavBackupConfig(
+      serverUrl: _serverUrlController.text.trim(),
+      username: _usernameController.text.trim(),
+      password: _passwordController.text.trim(),
+      remotePath: _pathController.text.trim(),
     );
     if (!config.isValid) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请完整填写 GitHub 同步配置')),
+        const SnackBar(content: Text('请完整填写 WebDAV 备份配置')),
       );
       return;
     }
-    await GithubSyncService.saveConfig(config);
+    await WebDavBackupService.saveConfig(config);
     if (!mounted) {
       return;
     }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const finance_sync_status.GithubSyncStatusScreen(),
+        builder: (_) => const finance_sync_status.WebDavBackupStatusScreen(),
       ),
     );
   }
