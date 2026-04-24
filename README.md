@@ -1,28 +1,29 @@
-# 财务应用 UI (Finance App UI)
+# 旺财 (WangCai)
 
-一个基于 Tailwind CSS 设计参考精美构建的 Flutter 个人财务管理应用程序。
+**旺财** 是一款设计精美、功能实用的个人记账手机应用，使用 Flutter 构建，旨在帮助您轻松管理个人财务、追踪支出并实现储蓄目标。
 
 ## 功能特性
 
-本仓库包含 9 个核心界面的前端 UI 实现：
+旺财目前已实现以下核心功能界面的构建，为您提供流畅的记账体验：
 
-1.  **资产概览 (`AssetOverviewScreen`)**: 显示总资产、净资产、总负债以及关联账户的网格列表（如储蓄卡、信用卡、现金等）。
-2.  **添加账单 (`AddTransactionScreen`)**: 一个模态底部工作表（Bottom Sheet），用于输入新的收入、支出或转账记录，包含便当式（Bento-style）分类网格和金额输入功能。
-3.  **财务统计 (`FinancialStatsScreen`)**: 可视化支出分布的环形图，并使用 `fl_chart` 绘制记录每日支出趋势的柱状图。
-4.  **添加账户 (`AddAccountScreen`)**: 添加新财务账户的表单，允许用户设置初始余额、账户名称和账户类型。
-5.  **月度概览 (`MonthlyOverviewScreen`)**: 特定月份的汇总视图，展示支出速度、最近交易活动以及储蓄目标进度。
-6.  **设置 (`SettingsScreen`)**: 管理用户资料、应用偏好设置、安全以及支持选项。
-7.  **GitHub 同步设置 (`GithubSyncSetupScreen`)**: 指引用户输入其 GitHub Personal Access Token (PAT) 以启用云端数据同步。
-8.  **GitHub 同步配置 (`GithubSyncSettingsScreen`)**: 允许配置目标仓库、文件格式（JSON/CSV）以及同步频率。
-9.  **GitHub 同步状态 (`GithubSyncStatusScreen`)**: 显示当前的同步状态、最后同步时间，以及手动触发同步的按钮。
+1.  **资产概览 (`AssetOverviewScreen`)**: 全面掌握您的财务状况。显示总资产、净资产、总负债，并以网格列表的形式展示您关联的各个账户（如储蓄卡、信用卡、支付宝、微信支付、现金等）。
+2.  **便捷记账 (`AddTransactionScreen`)**: 随时随地记录收支。通过模态底部工作表（Bottom Sheet），快速输入收入、支出或转账记录，提供直观的分类网格和金额键盘。
+3.  **财务统计 (`FinancialStatsScreen`)**: 洞察您的消费习惯。利用直观的环形图展示支出分布，配合柱状图追踪每日支出趋势，让您的资金流向一目了然。
+4.  **账户管理 (`AddAccountScreen`)**: 轻松添加和管理您的各类财务账户。您可以设置账户名称、选择账户类型并设定初始余额。
+5.  **月度报告 (`MonthlyOverviewScreen`)**: 每月财务情况总结。展示当月的支出速度、最近的交易活动，并跟进您的储蓄目标进度。
+6.  **个性化设置 (`SettingsScreen`)**: 定制您的应用体验。管理用户资料、应用偏好设置（如主题、分类管理）、安全选项（面容ID/密码）以及数据导出功能。
+7.  **数据云同步 (GitHub Sync)**:
+    - **设置 (`GithubSyncSetupScreen`)**: 输入您的 GitHub Personal Access Token 开启安全的数据同步。
+    - **配置 (`GithubSyncSettingsScreen`)**: 自由选择同步的目标仓库、文件格式（支持 JSON/CSV）以及同步频率（实时、每日或手动）。
+    - **状态 (`GithubSyncStatusScreen`)**: 随时查看当前的同步状态、最后同步时间，并可一键手动触发同步，确保数据安全不丢失。
 
 ## 技术栈
 
-*   **框架:** Flutter
-*   **字体:** `google_fonts` (使用 Inter 字体)
-*   **图表:** `fl_chart`
-*   **图标:** `material_symbols_icons`
-*   **状态管理:** `provider` (已作为依赖项添加，供后续逻辑实现使用)
+*   **跨平台框架:** Flutter
+*   **字体设计:** `google_fonts` (采用现代化无衬线字体 Inter)
+*   **数据可视化:** `fl_chart` (用于生成精美的统计图表)
+*   **图标库:** `material_symbols_icons`
+*   **状态管理:** `provider` (为后续业务逻辑处理和数据状态管理提供基础)
 
 ## 项目结构
 
@@ -30,35 +31,37 @@
 lib/
 ├── main.dart
 ├── screens/
-│   ├── main_layout.dart               # 带底部导航栏 (BottomNavigationBar) 的主脚手架
+│   ├── main_layout.dart               # 包含底部导航栏 (BottomNavigationBar) 的主界面框架
 │   ├── home/
-│   │   ├── asset_overview_screen.dart
-│   │   └── monthly_overview_screen.dart
+│   │   ├── asset_overview_screen.dart   # 资产概览
+│   │   └── monthly_overview_screen.dart # 月度概览
 │   ├── add/
-│   │   └── add_transaction_screen.dart
+│   │   └── add_transaction_screen.dart  # 记账面板
 │   ├── stats/
-│   │   └── financial_stats_screen.dart
+│   │   └── financial_stats_screen.dart  # 财务统计
 │   ├── accounts/
-│   │   └── add_account_screen.dart
+│   │   └── add_account_screen.dart      # 添加账户
 │   └── settings/
-│       ├── settings_screen.dart
-│       ├── github_sync_setup_screen.dart
-│       ├── github_sync_settings_screen.dart
-│       └── github_sync_status_screen.dart
+│       ├── settings_screen.dart           # 设置中心
+│       ├── github_sync_setup_screen.dart  # GitHub 同步向导
+│       ├── github_sync_settings_screen.dart # 同步偏好设置
+│       └── github_sync_status_screen.dart   # 同步状态面板
 └── theme/
-    ├── app_colors.dart                # 匹配设计规范的集中化调色板
-    └── app_theme.dart                 # 全局 ThemeData 主题配置
+    ├── app_colors.dart                # 全局调色板配置
+    └── app_theme.dart                 # 应用全局主题配置
 ```
 
 ## 快速开始
 
-1.  **准备工作:** 确保您的计算机上已安装并配置好 Flutter 环境。
+如果您想在本地运行和体验“旺财”应用：
+
+1.  **准备工作:** 确保您的计算机上已安装并配置好 Flutter SDK 开发环境。
 2.  **克隆仓库:**
     ```bash
     git clone <repository-url>
     cd finance_app
     ```
-3.  **安装依赖:**
+3.  **获取依赖:**
     ```bash
     flutter pub get
     ```
