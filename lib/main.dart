@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:finance_app/providers/app_settings_provider.dart';
 import 'package:finance_app/providers/category_provider.dart';
 import 'package:finance_app/providers/security_provider.dart';
 import 'package:finance_app/theme/app_theme.dart';
@@ -23,11 +24,16 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => TransactionProvider()),
         ChangeNotifierProvider(create: (_) => SecurityProvider()),
+        ChangeNotifierProvider(create: (_) => AppSettingsProvider()),
       ],
-      child: MaterialApp(
-        title: '旺财',
-        theme: AppTheme.lightTheme,
-        home: const AppLockGate(child: MainLayout()),
+      child: Consumer<AppSettingsProvider>(
+        builder: (context, settings, _) => MaterialApp(
+          title: '旺财',
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: settings.themeMode,
+          home: const AppLockGate(child: MainLayout()),
+        ),
       ),
     );
   }

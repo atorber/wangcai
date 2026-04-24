@@ -79,4 +79,59 @@ class AppTheme {
       useMaterial3: true,
     );
   }
+
+  static ThemeData get darkTheme {
+    final baseTextTheme = TextTheme(
+      displayLarge: GoogleFonts.inter(
+        fontSize: 32,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.02 * 32,
+        height: 1.2,
+      ),
+      displayMedium: GoogleFonts.inter(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.01 * 24,
+        height: 1.3,
+      ),
+      bodyLarge: GoogleFonts.inter(
+        fontSize: 17,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.01 * 17,
+        height: 1.5,
+      ),
+      bodyMedium: GoogleFonts.inter(
+        fontSize: 15,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0,
+        height: 1.5,
+      ),
+      labelLarge: GoogleFonts.inter(
+        fontSize: 13,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.02 * 13,
+        height: 1.4,
+      ),
+      labelSmall: GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.05 * 11,
+        height: 1.2,
+      ),
+    );
+    return ThemeData(
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: AppColors.primary,
+        brightness: Brightness.dark,
+      ),
+      scaffoldBackgroundColor: const Color(0xFF121212),
+      cardColor: const Color(0xFF1E1E1E),
+      textTheme: baseTextTheme.apply(
+        bodyColor: const Color(0xFFEDEDED),
+        displayColor: const Color(0xFFEDEDED),
+      ),
+      useMaterial3: true,
+    );
+  }
 }

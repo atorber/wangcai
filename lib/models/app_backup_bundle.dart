@@ -11,6 +11,8 @@ class AppBackupBundle {
     required this.lenders,
     required this.categories,
     required this.transactions,
+    this.schemaVersion = 1,
+    this.deviceId,
   });
 
   final int version;
@@ -19,10 +21,14 @@ class AppBackupBundle {
   final List<Lender> lenders;
   final List<TransactionCategory> categories;
   final List<TransactionRecord> transactions;
+  final int schemaVersion;
+  final String? deviceId;
 
   Map<String, dynamic> toJson() {
     return {
       'version': version,
+      'schemaVersion': schemaVersion,
+      if (deviceId != null && deviceId!.isNotEmpty) 'deviceId': deviceId,
       'exportedAt': exportedAt.toIso8601String(),
       'accounts': accounts.map((e) => e.toJson()).toList(growable: false),
       'lenders': lenders.map((e) => e.toJson()).toList(growable: false),
@@ -55,6 +61,8 @@ class AppBackupBundle {
 
     return AppBackupBundle(
       version: (json['version'] as num?)?.toInt() ?? 1,
+      schemaVersion: (json['schemaVersion'] as num?)?.toInt() ?? 1,
+      deviceId: json['deviceId'] as String?,
       exportedAt: DateTime.tryParse(json['exportedAt'] as String? ?? '') ?? DateTime.now(),
       accounts: accountList,
       lenders: lenderList,

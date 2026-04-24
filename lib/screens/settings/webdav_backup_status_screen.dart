@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:finance_app/models/app_backup_bundle.dart';
-import 'package:finance_app/models/github_sync_config.dart';
+import 'package:finance_app/models/webdav_backup_config.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/category_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
-import 'package:finance_app/services/github_sync_service.dart';
+import 'package:finance_app/services/webdav_backup_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
 
@@ -53,21 +53,21 @@ class _WebDavBackupStatusScreenState extends State<WebDavBackupStatusScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 32.0),
-          child: Column(
-            children: [
-              const SizedBox(height: 48),
-              _buildStatusIndicator(context),
-              const SizedBox(height: 48),
-              _buildDetailsCard(context),
-              const Spacer(),
-              _buildActionButtons(context),
-              const SizedBox(height: 40),
-            ],
-          ),
-        ),
-      ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 32.0),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 48),
+                    _buildStatusIndicator(context),
+                    const SizedBox(height: 48),
+                    _buildDetailsCard(context),
+                    const Spacer(),
+                    _buildActionButtons(context),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
@@ -252,15 +252,31 @@ class _WebDavBackupStatusScreenState extends State<WebDavBackupStatusScreen> {
       _showMessage('请先在上一步保存 WebDAV 配置');
       return;
     }
+    final accountProvider = context.read<AccountProvider>();
+    final categoryProvider = context.read<CategoryProvider>();
+    final transactionProvider = context.read<TransactionProvider>();
     setState(() => _syncing = true);
     try {
+      final remoteMeta = await WebDavBackupService.fetchRemoteBundleMeta(_config!);
+      final now = DateTime.now();
+      if (remoteMeta != null && remoteMeta.exportedAt.isAfter(now)) {
+        final shouldContinue = await _confirmRiskyAction(
+          title: '检测到远端备份时间更新',
+          content:
+              '远端备份时间 (${remoteMeta.exportedAt.toIso8601String()}) 晚于当前设备时间，继续上传会覆盖远端版本，是否继续？',
+          confirmText: '继续覆盖',
+        );
+        if (!shouldContinue) {
+          return;
+        }
+      }
       final bundle = AppBackupBundle(
         version: 1,
-        exportedAt: DateTime.now(),
-        accounts: context.read<AccountProvider>().accounts,
-        lenders: context.read<AccountProvider>().lenders,
-        categories: context.read<CategoryProvider>().categories,
-        transactions: context.read<TransactionProvider>().transactions,
+        exportedAt: now,
+        accounts: accountProvider.accounts,
+        lenders: accountProvider.lenders,
+        categories: categoryProvider.categories,
+        transactions: transactionProvider.transactions,
       );
       await WebDavBackupService.uploadBackup(_config!, bundle);
       _lastSyncAt = await WebDavBackupService.getLastSyncAt();
@@ -283,9 +299,31 @@ class _WebDavBackupStatusScreenState extends State<WebDavBackupStatusScreen> {
     final transactionProvider = context.read<TransactionProvider>();
     final accountProvider = context.read<AccountProvider>();
     final categoryProvider = context.read<CategoryProvider>();
+    final hasLocalData = transactionProvider.transactions.isNotEmpty ||
+        accountProvider.accounts.isNotEmpty ||
+        accountProvider.lenders.isNotEmpty;
     setState(() => _syncing = true);
     try {
       final bundle = await WebDavBackupService.downloadBackup(_config!);
+      final localLatestTxAt = transactionProvider.transactions.isEmpty
+          ? null
+          : transactionProvider.transactions
+              .map((item) => item.date)
+              .reduce((a, b) => a.isAfter(b) ? a : b);
+      final remoteOlderThanLocal = hasLocalData &&
+          localLatestTxAt != null &&
+          bundle.exportedAt.isBefore(localLatestTxAt);
+      if (remoteOlderThanLocal) {
+        final shouldContinue = await _confirmRiskyAction(
+          title: '远端备份可能较旧',
+          content:
+              '远端备份时间 (${bundle.exportedAt.toIso8601String()}) 早于本地最新账单时间 (${localLatestTxAt.toIso8601String()})，继续恢复会丢失本地较新数据，是否继续？',
+          confirmText: '仍然恢复',
+        );
+        if (!shouldContinue) {
+          return;
+        }
+      }
       await accountProvider.replaceAll(bundle.accounts);
       await accountProvider.replaceLenders(bundle.lenders);
       await categoryProvider.replaceAll(bundle.categories);
@@ -309,5 +347,34 @@ class _WebDavBackupStatusScreenState extends State<WebDavBackupStatusScreen> {
       return;
     }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<bool> _confirmRiskyAction({
+    required String title,
+    required String content,
+    required String confirmText,
+  }) async {
+    if (!mounted) {
+      return false;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: Text(confirmText),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 }

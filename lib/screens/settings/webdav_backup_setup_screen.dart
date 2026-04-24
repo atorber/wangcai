@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:finance_app/models/github_sync_config.dart';
-import 'package:finance_app/services/github_sync_service.dart';
+import 'package:finance_app/models/webdav_backup_config.dart';
+import 'package:finance_app/services/webdav_backup_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
-import 'package:finance_app/screens/settings/github_sync_status_screen.dart' as finance_sync_status;
+import 'package:finance_app/screens/settings/webdav_backup_status_screen.dart' as finance_sync_status;
 
 class WebDavBackupSetupScreen extends StatefulWidget {
   const WebDavBackupSetupScreen({super.key});
@@ -59,18 +59,18 @@ class _WebDavBackupSetupScreenState extends State<WebDavBackupSetupScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildHeaderSection(context),
-              const SizedBox(height: 32),
-              _buildFormSection(context),
-            ],
-          ),
-        ),
-      ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 32.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeaderSection(context),
+                    const SizedBox(height: 32),
+                    _buildFormSection(context),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
