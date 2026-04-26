@@ -735,7 +735,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<String>(
-                          key: ValueKey(selectedCategoryId),
+                          key: ValueKey('budget-category-$selectedCategoryId'),
                           initialValue: selectedCategoryId,
                           items: categoryProvider.categories
                               .map(
@@ -762,7 +762,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
                         ),
                         const SizedBox(height: 12),
                         TextFormField(
-                          key: ValueKey(selectedCategoryId),
+                          key: ValueKey('budget-input-$selectedCategoryId'),
                           initialValue: budgetInput,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -981,7 +981,7 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     double amount, {
     int decimalDigits = 2,
   }) {
-    final enabled = context.read<SecurityProvider>().privacyModeEnabled;
+    final enabled = context.watch<SecurityProvider>().privacyModeEnabled;
     if (enabled) {
       return '¥****';
     }

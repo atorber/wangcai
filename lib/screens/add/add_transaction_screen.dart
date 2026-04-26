@@ -28,7 +28,21 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final List<String> _transactionTypes = ['支出', '收入', '转账', '借出', '借入'];
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _noteController = TextEditingController();
+  final FocusNode _amountFocusNode = FocusNode();
   bool _initializedFromRecord = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.initialRecord == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        FocusScope.of(context).requestFocus(_amountFocusNode);
+      });
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -68,6 +82,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
   @override
   void dispose() {
+    _amountFocusNode.dispose();
     _amountController.dispose();
     _noteController.dispose();
     super.dispose();
@@ -222,7 +237,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             const SizedBox(width: 4),
             IntrinsicWidth(
               child: TextField(
-                autofocus: true,
+                focusNode: _amountFocusNode,
                 controller: _amountController,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
