@@ -42,3 +42,10 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // Provide annotation stubs required by Tink during R8 shrinking in release builds.
+    compileOnly("com.google.errorprone:error_prone_annotations:2.27.0")
+    compileOnly("com.google.code.findbugs:jsr305:3.0.2")
+    compileOnly("javax.annotation:javax.annotation-api:1.3.2")
+}
