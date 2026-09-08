@@ -8,7 +8,9 @@ import 'package:finance_app/screens/settings/settings_screen.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/recurring_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -49,26 +51,31 @@ class _MainLayoutState extends State<MainLayout> {
       if (!recurring.loaded || !transactions.loaded || !accounts.loaded) {
         return;
       }
-      final dueItems = recurring.peekDueTransactions();
-      if (dueItems.isEmpty) {
-        return;
-      }
-      var created = 0;
-      for (final item in dueItems) {
-        final added = await transactions.addIfAbsent(item.record);
-        if (added != null) {
-          await accounts.applyTransaction(added);
-          created++;
+      try {
+        await CloudLedgerBridge.ensureFresh(context);
+        if (!mounted) {
+          return;
         }
-        await recurring.advanceAfterRecord(
-          ruleId: item.ruleId,
-          nextRunDateAfter: item.nextRunDateAfter,
-        );
-      }
-      if (created > 0 && mounted) {
-        ScaffoldMessenger.of(
+        final created = await CloudLedgerBridge.mutate(
           context,
-        ).showSnackBar(SnackBar(content: Text('已自动入账 $created 笔周期账单')));
+          action: (ledger) async {
+            return ledger.runDueRecurring();
+          },
+        );
+        if (created > 0 && mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('已自动入账 $created 笔周期账单')));
+        }
+      } on CloudSyncException catch (e) {
+        if (!mounted) {
+          return;
+        }
+        if (e.code == 'LOCK_BUSY') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('云端账本正被其他端写入，周期入账稍后重试')),
+          );
+        }
       }
     }
 

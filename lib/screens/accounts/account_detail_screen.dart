@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:finance_app/models/account.dart';
 import 'package:finance_app/models/transaction_record.dart';
-import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/screens/add/add_transaction_screen.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 
 class AccountDetailScreen extends StatelessWidget {
   const AccountDetailScreen({super.key, required this.account});
@@ -389,8 +390,6 @@ class AccountDetailScreen extends StatelessWidget {
     BuildContext context,
     TransactionRecord record,
   ) async {
-    final provider = context.read<TransactionProvider>();
-    final accountProvider = context.read<AccountProvider>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -412,8 +411,26 @@ class AccountDetailScreen extends StatelessWidget {
     if (confirmed != true || !context.mounted) {
       return;
     }
-    await accountProvider.revertTransaction(record);
-    await provider.deleteTransaction(record.id);
+    try {
+      await CloudLedgerBridge.mutate(
+        context,
+        action: (ledger) async {
+          ledger.deleteTransaction(record.id);
+        },
+      );
+    } on CloudSyncException catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '删除失败：$e',
+          ),
+        ),
+      );
+      return;
+    }
     if (!context.mounted) {
       return;
     }

@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:finance_app/screens/add/add_transaction_screen.dart';
 import 'package:finance_app/models/transaction_record.dart';
-import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 
 class BillListScreen extends StatefulWidget {
   const BillListScreen({super.key});
@@ -368,8 +369,6 @@ class _BillListScreenState extends State<BillListScreen> {
   }
 
   Future<void> _confirmDelete(TransactionRecord record) async {
-    final provider = context.read<TransactionProvider>();
-    final accountProvider = context.read<AccountProvider>();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -387,16 +386,35 @@ class _BillListScreenState extends State<BillListScreen> {
         ],
       ),
     );
-    if (confirmed == true && mounted) {
-      await accountProvider.revertTransaction(record);
-      await provider.deleteTransaction(record.id);
+    if (confirmed != true || !mounted) {
+      return;
+    }
+    try {
+      await CloudLedgerBridge.mutate(
+        context,
+        action: (ledger) async {
+          ledger.deleteTransaction(record.id);
+        },
+      );
+    } on CloudSyncException catch (e) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('账单已删除')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '删除失败：$e',
+          ),
+        ),
+      );
+      return;
     }
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('账单已删除')));
   }
 
   Future<void> _openEditPage(TransactionRecord record) async {

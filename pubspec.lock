@@ -805,6 +805,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "15.1.0"
+  wangcai_core:
+    dependency: "direct main"
+    description:
+      path: "packages/wangcai_core"
+      relative: true
+    source: path
+    version: "0.1.0"
   web:
     dependency: transitive
     description:

@@ -2,11 +2,12 @@ import 'package:file_selector/file_selector.dart';
 import 'package:finance_app/models/account.dart';
 import 'package:finance_app/models/transaction_record.dart';
 import 'package:finance_app/providers/account_provider.dart';
-import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/services/bill_import_service.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 
 class BillImportScreen extends StatefulWidget {
   const BillImportScreen({super.key});
@@ -244,30 +245,46 @@ class _BillImportScreenState extends State<BillImportScreen> {
     }
 
     setState(() => _importing = true);
-    final transactionProvider = context.read<TransactionProvider>();
-    final accountProvider = context.read<AccountProvider>();
     var count = 0;
     try {
       final indexes = _selectedIndexes.toList()..sort();
-      for (final index in indexes) {
-        final row = _result!.rows[index];
-        final record = await transactionProvider.addTransaction(
-          type: row.type,
-          amount: row.amount,
-          category: row.suggestedCategory,
-          accountId: account.id,
-          accountName: account.name,
-          date: row.date,
-          note: row.note,
-        );
-        await accountProvider.applyTransaction(record);
-        count++;
-      }
+      final accountId = account.id;
+      count = await CloudLedgerBridge.mutate(
+        context,
+        action: (ledger) async {
+          var imported = 0;
+          for (final index in indexes) {
+            final row = _result!.rows[index];
+            ledger.createTransaction(
+              type: row.type,
+              amount: row.amount,
+              category: row.suggestedCategory,
+              accountId: accountId,
+              date: row.date,
+              note: row.note,
+            );
+            imported++;
+          }
+          return imported;
+        },
+      );
       if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('已导入 $count 条账单')));
         Navigator.of(context).pop(true);
+      }
+    } on CloudSyncException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              error.code == 'LOCK_BUSY'
+                  ? '云端账本正被其他端写入，请稍后重试'
+                  : '导入失败：$error',
+            ),
+          ),
+        );
       }
     } catch (error) {
       if (mounted) {

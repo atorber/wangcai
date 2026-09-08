@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Skill 入口：按本机 OS/Arch 选择 bin/ 下对应二进制
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+arch="$(uname -m)"
+case "$arch" in
+  arm64|aarch64) arch=arm64 ;;
+  x86_64|amd64) arch=x64 ;;
+esac
+
+case "$os" in
+  darwin) candidate="$DIR/wangcai-macos-${arch}" ;;
+  linux) candidate="$DIR/wangcai-linux-${arch}" ;;
+  mingw*|msys*|cygwin*) candidate="$DIR/wangcai-windows-${arch}.exe" ;;
+  *)
+    echo "不支持的操作系统: $os" >&2
+    exit 1
+    ;;
+esac
+
+if [[ ! -f "$candidate" ]]; then
+  echo "未找到本平台二进制: $candidate" >&2
+  echo "请运行 packages/wangcai_cli/scripts/build.sh，或从 CI artifact 放入本目录。" >&2
+  exit 1
+fi
+chmod +x "$candidate" 2>/dev/null || true
+exec "$candidate" "$@"

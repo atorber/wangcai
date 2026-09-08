@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:finance_app/models/app_backup_bundle.dart';
 import 'package:finance_app/models/cloud_sync_config.dart';
 import 'package:finance_app/providers/account_provider.dart';
+import 'package:finance_app/providers/budget_provider.dart';
 import 'package:finance_app/providers/category_provider.dart';
+import 'package:finance_app/providers/recurring_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/services/cloud_sync_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 
 class CloudBackupStatusScreen extends StatefulWidget {
   const CloudBackupStatusScreen({super.key});
@@ -245,8 +248,11 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
     final accountProvider = context.read<AccountProvider>();
     final categoryProvider = context.read<CategoryProvider>();
     final transactionProvider = context.read<TransactionProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
     setState(() => _syncing = true);
     try {
+      final localRevision = await CloudSyncService.getLocalRevision();
       AppBackupBundle? remoteMeta;
       try {
         remoteMeta = await CloudSyncService.fetchRemoteBundleMeta(_config!);
@@ -254,7 +260,19 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
         remoteMeta = null;
       }
       final now = DateTime.now();
-      if (remoteMeta != null && remoteMeta.exportedAt.isAfter(now)) {
+      var force = false;
+      if (remoteMeta != null && remoteMeta.revision > localRevision) {
+        final shouldContinue = await _confirmRiskyAction(
+          title: '远端版本更新',
+          content:
+              '远端 revision (${remoteMeta.revision}) 新于本地 ($localRevision)。继续上传将覆盖远端，是否继续？',
+          confirmText: '继续覆盖',
+        );
+        if (!shouldContinue) {
+          return;
+        }
+        force = true;
+      } else if (remoteMeta != null && remoteMeta.exportedAt.isAfter(now)) {
         final shouldContinue = await _confirmRiskyAction(
           title: '检测到远端备份时间更新',
           content:
@@ -264,19 +282,32 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
         if (!shouldContinue) {
           return;
         }
+        force = true;
       }
       final bundle = AppBackupBundle(
         version: 1,
+        schemaVersion: 2,
+        revision: localRevision,
         exportedAt: now,
         accounts: accountProvider.accounts,
         lenders: accountProvider.lenders,
         categories: categoryProvider.categories,
         transactions: transactionProvider.transactions,
+        budgets: budgetProvider.budgets,
+        recurringRules: recurringProvider.rules,
       );
-      await CloudSyncService.uploadBackup(_config!, bundle);
+      await CloudSyncService.uploadBackup(_config!, bundle, force: force);
       _lastSyncAt = await CloudSyncService.getLastSyncAt();
-      _showMessage('备份成功');
+      _showMessage('备份成功（已加锁同步）');
       setState(() {});
+    } on CloudSyncException catch (e) {
+      if (e.code == 'CONFLICT') {
+        _showMessage('备份冲突：$e');
+      } else if (e.code == 'LOCK_BUSY') {
+        _showMessage('云端账本正在被其他端写入，请稍后重试');
+      } else {
+        _showMessage('备份失败：$e');
+      }
     } catch (e) {
       _showMessage('备份失败：$e');
     } finally {
@@ -294,42 +325,54 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
     final transactionProvider = context.read<TransactionProvider>();
     final accountProvider = context.read<AccountProvider>();
     final categoryProvider = context.read<CategoryProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
     final hasLocalData =
         transactionProvider.transactions.isNotEmpty ||
         accountProvider.accounts.isNotEmpty ||
         accountProvider.lenders.isNotEmpty;
     setState(() => _syncing = true);
     try {
-      final bundle = await CloudSyncService.downloadBackup(_config!);
-      final localLatestTxAt = transactionProvider.transactions.isEmpty
-          ? null
-          : transactionProvider.transactions
-                .map((item) => item.date)
-                .reduce((a, b) => a.isAfter(b) ? a : b);
-      final remoteOlderThanLocal =
+      final localRevision = await CloudSyncService.getLocalRevision();
+      AppBackupBundle? remoteMeta;
+      try {
+        remoteMeta = await CloudSyncService.fetchRemoteBundleMeta(_config!);
+      } catch (_) {
+        remoteMeta = null;
+      }
+      if (remoteMeta != null &&
           hasLocalData &&
-          localLatestTxAt != null &&
-          bundle.exportedAt.isBefore(localLatestTxAt);
-      if (remoteOlderThanLocal) {
+          remoteMeta.revision < localRevision) {
         final shouldContinue = await _confirmRiskyAction(
-          title: '远端备份可能较旧',
+          title: '远端版本可能较旧',
           content:
-              '远端备份时间 (${bundle.exportedAt.toIso8601String()}) 早于本地最新账单时间 (${localLatestTxAt.toIso8601String()})，继续恢复会丢失本地较新数据，是否继续？',
+              '远端 revision (${remoteMeta.revision}) 小于本地 ($localRevision)，继续恢复会丢失本地较新数据，是否继续？',
           confirmText: '仍然恢复',
         );
         if (!shouldContinue) {
           return;
         }
       }
+      final bundle = await CloudSyncService.downloadBackup(_config!);
       await accountProvider.replaceAll(bundle.accounts);
       await accountProvider.replaceLenders(bundle.lenders);
       await categoryProvider.replaceAll(bundle.categories);
       await transactionProvider.replaceAll(bundle.transactions);
+      await budgetProvider.replaceAll(bundle.budgets);
+      await recurringProvider.replaceAll(bundle.recurringRules);
       _lastSyncAt = await CloudSyncService.getLastSyncAt();
       _showMessage(
-        '恢复完成：${bundle.transactions.length} 条账单，${bundle.accounts.length} 个账户，${bundle.lenders.length} 个借贷人，${bundle.categories.length} 个分类',
+        '恢复完成：${bundle.transactions.length} 条账单，${bundle.accounts.length} 个账户，'
+        '${bundle.lenders.length} 个借贷人，${bundle.categories.length} 个分类'
+        '（revision ${bundle.revision}）',
       );
       setState(() {});
+    } on CloudSyncException catch (e) {
+      if (e.code == 'LOCK_BUSY') {
+        _showMessage('云端账本正在被其他端写入，请稍后重试');
+      } else {
+        _showMessage('恢复失败：$e');
+      }
     } catch (e) {
       _showMessage('恢复失败：$e');
     } finally {

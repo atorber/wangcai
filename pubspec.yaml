@@ -48,6 +48,8 @@ dependencies:
   package_info_plus: ^8.0.0
   flutter_secure_storage: ^8.1.0
   file_selector: ^1.0.3
+  wangcai_core:
+    path: packages/wangcai_core
 
 dev_dependencies:
   flutter_test:

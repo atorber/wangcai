@@ -6,12 +6,14 @@ import 'package:finance_app/screens/accounts/account_detail_screen.dart';
 import 'package:finance_app/screens/accounts/lender_detail_screen.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:finance_app/screens/accounts/add_account_screen.dart'
     as finance_add_account;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 
 class AssetOverviewScreen extends StatelessWidget {
   const AssetOverviewScreen({super.key});
@@ -822,34 +824,50 @@ class AssetOverviewScreen extends StatelessWidget {
       return;
     }
 
-    final accountProvider = context.read<AccountProvider>();
-    final transactionProvider = context.read<TransactionProvider>();
     final previousBalance = account.balance;
 
-    await accountProvider.updateAccount(
-      id: account.id,
-      name: name,
-      balance: shouldCreateAdjustment ? previousBalance : balance,
-      creditLimit: account.isCreditCard ? creditLimit : null,
-      billingDay: account.isCreditCard ? billingDay : null,
-      paymentDay: account.isCreditCard ? paymentDay : null,
-    );
-
-    if (shouldCreateAdjustment) {
-      final delta = balance - previousBalance;
-      if (delta != 0) {
-        final isIncome = delta > 0;
-        final record = await transactionProvider.addTransaction(
-          type: isIncome ? TransactionType.income : TransactionType.expense,
-          amount: delta.abs(),
-          category: '余额调整',
-          accountId: account.id,
-          accountName: name,
-          date: DateTime.now(),
-          note: '编辑账户余额补记',
-        );
-        await accountProvider.applyTransaction(record);
+    try {
+      await CloudLedgerBridge.mutate(
+        context,
+        action: (ledger) async {
+          ledger.updateAccount(
+            id: account.id,
+            name: name,
+            balance: shouldCreateAdjustment ? previousBalance : balance,
+            creditLimit: account.isCreditCard ? creditLimit : null,
+            billingDay: account.isCreditCard ? billingDay : null,
+            paymentDay: account.isCreditCard ? paymentDay : null,
+          );
+          if (shouldCreateAdjustment) {
+            final delta = balance - previousBalance;
+            if (delta != 0) {
+              final isIncome = delta > 0;
+              ledger.createTransaction(
+                type: isIncome
+                    ? TransactionType.income
+                    : TransactionType.expense,
+                amount: delta.abs(),
+                category: '余额调整',
+                accountId: account.id,
+                date: DateTime.now(),
+                note: '编辑账户余额补记',
+              );
+            }
+          }
+        },
+      );
+    } on CloudSyncException catch (e) {
+      if (!context.mounted) {
+        return;
       }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '更新失败：$e',
+          ),
+        ),
+      );
+      return;
     }
 
     if (context.mounted) {

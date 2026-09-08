@@ -13,11 +13,63 @@
 **把财务数据控制权交还给用户自己**。
 
 - 账本数据默认保留在本地设备，降低对第三方平台的被动依赖；
-- 可通过 WebDAV 协议备份到自有网盘/服务器，实现可追溯、可迁移、可长期保存的数据资产；
+- 可通过 WebDAV / S3 兼容协议备份到自有网盘或对象存储，实现可追溯、可迁移、可长期保存的数据资产；
+- App、CLI 与 AI Skill 共用 `wangcai_core`，以 `revision` + 锁文件保证多端写入互斥；
 - 功能设计以“可用、可导出、可统计”为基础能力，而不是被会员体系绑定的特权。
 
 得益于当下 AI 编程工具的成熟，个人开发者可以更高效地打造真正贴合自身需求的记账产品。旺财也是这一实践：  
 **我们可以自由定义自己的记账软件，而不是被动适应平台规则。**
+
+## 仓库结构
+
+| 路径 | 说明 |
+|------|------|
+| `lib/` | Flutter App |
+| `packages/wangcai_core` | 纯 Dart 账本核心（模型、余额副作用、统计、导入、SyncClient） |
+| `packages/wangcai_cli` | 命令行客户端，编译为独立可执行文件 |
+| `skills/wangcai-ai` | 可独立安装的 AI Skill（自带 CLI 二进制 + 配置模板） |
+| `docs/apis/` | 能力契约文档（供 Skill / 多端对齐） |
+
+## 多端同步（WebDAV / S3）
+
+- 账本为整文件 JSON（`LedgerBundle`），含单调递增 `revision`
+- 写入前加锁：远端同路径 `.lock` 租约文件；冲突返回 `LOCK_BUSY`
+- App 日常记账在已配置云同步时经 `CloudLedgerBridge` 写穿同一套 `SyncClient`
+- CLI / Skill 使用相同协议，可与手机 App 共用一份远端账本
+
+配置示例见 `packages/wangcai_cli/config.example.webdav.json`、`config.example.s3.json`（Skill 目录内亦有副本）。
+
+## CLI 与 AI Skill
+
+### 本机编译 CLI
+
+```bash
+cd packages/wangcai_cli
+./scripts/build.sh
+# 产物写入 skills/wangcai-ai/bin/wangcai-<os>-<arch>
+```
+
+运行无需安装 Dart（仅编译需要）。当前 Skill 已随包提供：
+
+- `skills/wangcai-ai/bin/wangcai` — macOS/Linux 启动器
+- `skills/wangcai-ai/bin/wangcai.cmd` — Windows 启动器
+- `skills/wangcai-ai/bin/wangcai-macos-arm64` — macOS Apple Silicon 二进制
+
+> Windows x64 需在 Windows 或 GitHub Actions（`.github/workflows/build-cli.yml`）上编译，再用 `./scripts/sync-from-ci.sh` 同步到 Skill。
+
+### 使用 Skill（独立安装）
+
+将 `skills/wangcai-ai/` 整体拷到 `~/.cursor/skills/wangcai-ai/`，配置 `~/.wangcai/config.json` 后：
+
+```bash
+~/.cursor/skills/wangcai-ai/bin/wangcai status
+~/.cursor/skills/wangcai-ai/bin/wangcai tx add --amount 38.5 --account 支付宝 --category 餐饮
+~/.cursor/skills/wangcai-ai/bin/wangcai stats --period month
+```
+
+命令 stdout 为 JSON：`{"ok":true,"data":...}`。说明见 `skills/wangcai-ai/SKILL.md`。
+
+---
 
 ## 使用说明 (User Guide)
 
@@ -64,96 +116,82 @@
 
 ## 功能特性
 
-旺财当前已实现以下核心功能：
-
-1.  **资产概览 (`AssetOverviewScreen`)**: 全面掌握您的财务状况。
-2.  **便捷记账 (`AddTransactionScreen`)**: 随时随地记录收支，便捷的模态弹出设计。
-3.  **财务统计 (`FinancialStatsScreen`)**: 基于真实账单数据，支持周 / 月 / 年维度的支出分布、趋势和同比洞察。
-4.  **账户管理 (`AddAccountScreen`)**: 轻松添加和管理各类财务账户。
-5.  **个性化设置 (`SettingsScreen`)**: 定制应用体验及安全选项。
-6.  **数据云备份 (WebDAV / S3)**: 完整的云备份与恢复流程，支持 WebDAV 与 S3 兼容对象存储。
+1.  **资产概览**: 全面掌握财务状况。
+2.  **便捷记账**: 支出 / 收入 / 转账 / 借贷，支持云端写穿同步。
+3.  **财务统计**: 周 / 月 / 年维度的支出分布、趋势与同比洞察。
+4.  **账户与分类 / 预算 / 周期账单**: 本地管理，可与远端账本一并同步。
+5.  **账单导入**: 支付宝 / 微信 CSV。
+6.  **云备份 (WebDAV / S3)**: 加锁同步，多端互斥写入。
+7.  **CLI + AI Skill**: 不依赖 App UI 亦可记账、查询与同步。
 
 ## 技术栈
 
 *   **跨平台框架:** Flutter
-*   **字体设计:** `google_fonts` (采用现代化无衬线字体 Inter)
-*   **数据可视化:** `fl_chart` (用于生成精美的统计图表)
-*   **图标库:** `material_symbols_icons`
-*   **状态管理:** `provider` (为后续业务逻辑处理和数据状态管理提供基础)
+*   **共享核心:** 纯 Dart 包 `wangcai_core`（无 Flutter 依赖）
+*   **状态管理:** `provider`
+*   **数据可视化:** `fl_chart`
+*   **字体 / 图标:** `google_fonts`、`material_symbols_icons`
+*   **对象存储:** WebDAV、S3 兼容（SigV4）
 
 ## 快速开始 (供开发者体验)
 
-如果您希望在本地运行并体验“旺财”应用：
-
-1.  **准备工作:** 确保您的计算机上已安装并配置好 Flutter SDK 开发环境。
-2.  **克隆仓库:**
+1.  安装并配置 Flutter SDK。
+2.  克隆仓库：
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/atorber/wangcai.git
     cd wangcai
     ```
-3.  **获取依赖:**
+3.  获取依赖并运行 App：
     ```bash
     flutter pub get
-    ```
-4.  **运行应用:**
-    ```bash
     flutter run
+    ```
+4.  （可选）编译 CLI：
+    ```bash
+    cd packages/wangcai_cli && ./scripts/build.sh
     ```
 
 ## 下载与发布版本
 
-如果您希望直接下载已打包版本（如 APK / AAB），请前往 GitHub Release 页面：
+直接下载已打包版本（如 APK / AAB）请前往 GitHub Release：
 
 - [WangCai Releases](https://github.com/atorber/wangcai/releases)
-- 当前版本：[`v0.1.0`](https://github.com/atorber/wangcai/releases/tag/v0.1.0)
 
 发布建议使用 GitHub Actions 的 `Create Release (Auto Bump Patch)` 工作流。  
-该流程会读取 `pubspec.yaml` 中的版本号作为基准；若同名版本已发布，则自动将补丁位（最后一位）递增后再创建 Release（例如 `v0.1.0` 已存在时自动发布 `v0.1.1`）。
+CLI 多平台二进制可使用 `Build Wangcai CLI` 工作流（macos-arm64 + windows-x64）。
 
 ## 项目阶段总结
 
-截至当前阶段，旺财已完成从“可用原型”到“可日常使用”的核心能力建设，主要体现在：
+截至当前阶段，旺财已完成从“可用原型”到“可日常使用 + 多端同步”的核心能力建设：
 
-- **记账闭环已打通**：覆盖支出、收入、转账、借出、借入等主要交易类型，满足日常高频记录场景。
-- **资产视图已成体系**：可从账户与总览两个维度查看资产、负债与净值变化，支持用户快速了解当下财务状态。
-- **统计分析具备基础决策价值**：基于真实账单构建了周 / 月 / 年维度的分类占比、趋势观察与同比洞察，能够支撑基础的消费管理与自我优化。
-- **数据主权路线已落地**：本地优先 + WebDAV 自有存储备份方案已具备完整配置流程，强化数据可控与可迁移能力。
-- **产品风格与品牌正在统一**：界面结构、交互风格与图标视觉持续收敛，逐步形成“旺财”独立产品识别度。
+- **记账闭环已打通**：覆盖支出、收入、转账、借出、借入等主要交易类型。
+- **资产视图已成体系**：账户与总览维度查看资产、负债与净值。
+- **统计分析具备基础决策价值**：周 / 月 / 年维度分类占比、趋势与同比洞察。
+- **数据主权路线已落地**：本地优先 + WebDAV / S3；`revision` + 文件锁支持 App / CLI / Skill 共用远端账本。
+- **开放调用面**：`wangcai_core` + 独立 CLI 二进制 + 可安装 Skill。
 
-整体来看，旺财已具备持续迭代的产品基础；下一阶段重点将从“功能可用”转向“稳定性、自动化与长期体验”。
+下一阶段重点：稳定性、Windows CLI 产物常态化、冲突与体验打磨。
 
 ## 下一步迭代路线
 
 ### P0（优先推进：稳定性与数据安全）
 
-1. **数据可靠性增强**
-   - 增加关键写入路径的异常恢复与失败重试策略。
-   - 完善同步冲突处理机制（本地与远端版本差异、覆盖策略、回滚策略）。
-2. **备份可验证性**
-   - 增加“最近一次成功备份时间”“备份结果校验”等可视反馈。
-   - 提供一键导出/导入演练流程，验证迁移可用性。
-3. **基础质量保障**
-   - 以“核心流程回归”为主建立最小测试集合（记账、账户、统计、同步），确保迭代不回退核心能力。
+1. **数据可靠性增强** — 关键写入重试、冲突与回滚策略完善。
+2. **备份可验证性** — 成功备份时间、校验与导出演练。
+3. **基础质量保障** — 记账 / 账户 / 统计 / 同步最小回归集。
+4. **CLI 多平台产物** — CI 产出 Windows 二进制并纳入 Skill `bin/`。
 
 ### P1（体验升级：效率与可读性）
 
-1. **记账效率优化**
-   - 增加常用分类/账户智能置顶、最近输入记忆、快捷金额模板。
-   - 优化添加流程中的键盘与焦点交互，减少多步操作成本。
-2. **统计与洞察增强**
-   - 增加预算执行、环比/同比、异常波动提醒等实用洞察。
-   - 统一图表交互与说明文案，提高可解释性。
-3. **信息架构打磨**
-   - 统一列表页、详情页、设置页的视觉与交互规范，持续提升一致性与学习成本友好度。
+1. **记账效率优化** — 常用分类置顶、快捷金额、焦点交互。
+2. **统计与洞察增强** — 预算执行、异常波动提醒。
+3. **信息架构打磨** — 列表 / 详情 / 设置页一致性。
 
 ### P2（能力扩展：长期可持续）
 
-1. **多账本与场景化**
-   - 支持个人/家庭/项目等账本隔离与切换。
-2. **规则自动化**
-   - 支持自动分类规则、周期性账单、固定收支模板。
-3. **生态与开放能力**
-   - 探索与更多云端存储或自托管后端的兼容方案，提升可扩展性与长期自治能力。
+1. **多账本与场景化** — 个人 / 家庭 / 项目隔离。
+2. **规则自动化** — 自动分类、周期与模板增强。
+3. **生态与开放能力** — 更多自托管存储兼容。
 
 ---
 

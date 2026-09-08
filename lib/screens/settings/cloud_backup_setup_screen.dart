@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:finance_app/models/cloud_sync_config.dart';
-import 'package:finance_app/models/webdav_backup_config.dart';
 import 'package:finance_app/services/cloud_sync_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/screens/settings/cloud_backup_status_screen.dart';

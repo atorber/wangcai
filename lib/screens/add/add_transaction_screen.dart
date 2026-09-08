@@ -1,12 +1,14 @@
-import 'package:flutter/material.dart';
 import 'package:finance_app/models/account.dart';
 import 'package:finance_app/models/lender.dart';
+import 'package:finance_app/models/transaction_category.dart';
 import 'package:finance_app/models/transaction_record.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/category_provider.dart';
-import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException, LedgerException;
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key, this.initialRecord, this.onSaved});
@@ -717,7 +719,6 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         categories[_selectedCategoryIndex.clamp(0, categories.length - 1)]
             .label;
     final accountProvider = context.read<AccountProvider>();
-    final transactionProvider = context.read<TransactionProvider>();
     final accounts = accountProvider.accounts;
     final selectedAccount = _findSelectedAccount(accounts);
     if (selectedAccount == null) {
@@ -777,21 +778,43 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     if (widget.initialRecord == null) {
-      final record = await transactionProvider.addTransaction(
-        type: type,
-        amount: amount,
-        category: category,
-        accountId: selectedAccount.id,
-        accountName: selectedAccount.name,
-        transferAccountId: transferAccountId,
-        transferAccountName: transferAccountName,
-        lenderId: lenderId,
-        lenderName: lenderName,
-        date: _selectedDate,
-        note: _noteController.text.trim(),
-      );
-      await accountProvider.applyTransaction(record);
-      await categoryProvider.markCategoryUsed(category);
+      try {
+        await CloudLedgerBridge.mutate(
+          context,
+          action: (ledger) async {
+            return ledger.createTransaction(
+              type: type,
+              amount: amount,
+              category: category,
+              accountId: selectedAccount.id,
+              transferAccountId: transferAccountId,
+              lenderId: lenderId,
+              date: _selectedDate,
+              note: _noteController.text.trim(),
+            );
+          },
+        );
+      } on CloudSyncException catch (e) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '保存失败：$e',
+            ),
+          ),
+        );
+        return;
+      } on LedgerException catch (e) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+        return;
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -826,12 +849,34 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       date: _selectedDate,
       note: _noteController.text.trim(),
     );
-    await accountProvider.applyTransactionUpdate(
-      oldRecord: oldRecord,
-      newRecord: updated,
-    );
-    await transactionProvider.updateTransaction(updated);
-    await categoryProvider.markCategoryUsed(category);
+    try {
+      await CloudLedgerBridge.mutate(
+        context,
+        action: (ledger) async {
+          return ledger.updateTransaction(updated);
+        },
+      );
+    } on CloudSyncException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '更新失败：$e',
+          ),
+        ),
+      );
+      return;
+    } on LedgerException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
+      return;
+    }
 
     if (mounted) {
       Navigator.of(context).pop(true);

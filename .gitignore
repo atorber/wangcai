@@ -107,6 +107,11 @@ unlinked_spec.ds
 # Coverage
 coverage/
 
+# wangcai_cli native binaries (platform-specific)
+packages/wangcai_cli/wangcai
+packages/wangcai_cli/wangcai.exe
+
+
 # Symbols
 app.*.symbols
 

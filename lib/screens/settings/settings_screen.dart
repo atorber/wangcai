@@ -555,6 +555,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final accountProvider = context.read<AccountProvider>();
     final categoryProvider = context.read<CategoryProvider>();
     final transactionProvider = context.read<TransactionProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
     setState(() {
       _isImporting = true;
     });
@@ -608,6 +610,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await accountProvider.replaceLenders(bundle.lenders);
       await categoryProvider.replaceAll(bundle.categories);
       await transactionProvider.replaceAll(bundle.transactions);
+      await budgetProvider.replaceAll(bundle.budgets);
+      await recurringProvider.replaceAll(bundle.recurringRules);
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -633,13 +637,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final accountProvider = context.read<AccountProvider>();
     final categoryProvider = context.read<CategoryProvider>();
     final transactionProvider = context.read<TransactionProvider>();
+    final budgetProvider = context.read<BudgetProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
     return AppBackupBundle(
       version: 1,
+      schemaVersion: 2,
       exportedAt: DateTime.now(),
       accounts: accountProvider.accounts,
       lenders: accountProvider.lenders,
       categories: categoryProvider.categories,
       transactions: transactionProvider.transactions,
+      budgets: budgetProvider.budgets,
+      recurringRules: recurringProvider.rules,
     );
   }
 

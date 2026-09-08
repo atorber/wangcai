@@ -1,0 +1,54 @@
+name: Build Wangcai CLI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "packages/wangcai_cli/**"
+      - "packages/wangcai_core/**"
+      - ".github/workflows/build-cli.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: wangcai-macos-arm64
+            out: wangcai-macos-arm64
+          - os: windows-latest
+            artifact: wangcai-windows-x64
+            out: wangcai-windows-x64.exe
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: packages/wangcai_cli
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Pub get
+        run: dart pub get
+
+      - name: Compile
+        shell: bash
+        run: |
+          dart compile exe bin/wangcai.dart -o "${{ matrix.out }}"
+          ls -lh "${{ matrix.out }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: packages/wangcai_cli/${{ matrix.out }}
+          if-no-files-found: error

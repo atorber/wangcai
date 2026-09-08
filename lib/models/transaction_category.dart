@@ -1,33 +1,11 @@
+export 'package:wangcai_core/wangcai_core.dart'
+    show TransactionCategory, defaultCategories;
+
 import 'package:flutter/material.dart';
+import 'package:wangcai_core/wangcai_core.dart';
 
-class TransactionCategory {
-  const TransactionCategory({
-    required this.id,
-    required this.label,
-    required this.iconKey,
-  });
-
-  final String id;
-  final String label;
-  final String iconKey;
-
+extension TransactionCategoryUi on TransactionCategory {
   IconData get icon => iconDataFromKey(iconKey);
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'label': label,
-      'iconKey': iconKey,
-    };
-  }
-
-  factory TransactionCategory.fromJson(Map<String, dynamic> json) {
-    return TransactionCategory(
-      id: json['id'] as String? ?? '${DateTime.now().microsecondsSinceEpoch}',
-      label: json['label'] as String? ?? '其他',
-      iconKey: json['iconKey'] as String? ?? 'other',
-    );
-  }
 }
 
 IconData iconDataFromKey(String key) {
