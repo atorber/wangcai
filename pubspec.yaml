@@ -7,7 +7,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # App version is maintained in ./VERSION (single source of truth).
 # Run `./tool/sync_version.sh` before local release builds, or let CI sync it.
 # Format: name+buildNumber (e.g. 0.2.2+3). Flutter still reads this field at build time.
-version: 0.2.2+4
+version: 0.2.3+5
 
 environment:
   sdk: ^3.11.0
