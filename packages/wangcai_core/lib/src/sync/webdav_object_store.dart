@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:wangcai_core/src/models/cloud_sync_config.dart';
+import 'package:wangcai_core/src/models/sync_lock.dart';
 import 'package:wangcai_core/src/sync/cloud_sync_exception.dart';
 import 'package:wangcai_core/src/sync/object_store.dart';
 
@@ -12,6 +13,7 @@ class WebDavObjectStore implements ObjectStore {
       _ownsClient = client == null;
 
   static const _requestTimeout = Duration(seconds: 45);
+  static const _probeTimeout = Duration(seconds: 8);
 
   final WebDavBackupConfig config;
   final http.Client _client;
@@ -25,7 +27,7 @@ class WebDavObjectStore implements ObjectStore {
 
   @override
   Future<void> put(String path, List<int> bytes, {String? contentType}) async {
-    await _ensureParentDirectories(path);
+    await _ensureParentDirectoriesIfNeeded(path);
     final response = await _guardRequest(
       () => _client.put(
         _buildUri(path),
@@ -43,7 +45,7 @@ class WebDavObjectStore implements ObjectStore {
     List<int> bytes, {
     String? contentType,
   }) async {
-    await _ensureParentDirectories(path);
+    await _ensureParentDirectoriesIfNeeded(path);
 
     // 坚果云等会忽略 If-None-Match:* 仍返回 2xx 并覆盖文件，因此必须先探测存在性。
     // 先 GET：已存在则视为未创建（锁被占用）。
@@ -248,28 +250,44 @@ class WebDavObjectStore implements ObjectStore {
     };
   }
 
-  Future<void> _ensureParentDirectories(String path) async {
-    final normalized = path.startsWith('/') ? path.substring(1) : path;
-    final segments = normalized
-        .split('/')
-        .where((segment) => segment.trim().isNotEmpty)
-        .toList(growable: false);
-    if (segments.length <= 1) {
+  /// 锁文件与账本同目录，恢复/加锁时不必 MKCOL；避免坚果云对已存在目录 MKCOL 超时。
+  bool _isLockSidecarPath(String path) {
+    final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    return trimmed.endsWith(SyncLock.fileSuffix) || trimmed.endsWith('.lock');
+  }
+
+  Future<void> _ensureParentDirectoriesIfNeeded(String path) async {
+    if (_isLockSidecarPath(path)) {
       return;
     }
-    final baseUri = Uri.parse(config.serverUrl.trim());
-    final basePath = baseUri.path.endsWith('/')
-        ? baseUri.path.substring(0, baseUri.path.length - 1)
-        : baseUri.path;
-    var currentPath = basePath;
-    for (final segment in segments.take(segments.length - 1)) {
-      currentPath = '$currentPath/$segment';
-      final dirUri = baseUri.replace(path: currentPath);
-      // 坚果云等对已存在目录再 MKCOL 可能很慢或异常；先探测再创建。
-      if (await _collectionExists(dirUri)) {
-        continue;
+    await _ensureParentDirectories(path);
+  }
+
+  Future<void> _ensureParentDirectories(String path) async {
+    try {
+      final normalized = path.startsWith('/') ? path.substring(1) : path;
+      final segments = normalized
+          .split('/')
+          .where((segment) => segment.trim().isNotEmpty)
+          .toList(growable: false);
+      if (segments.length <= 1) {
+        return;
       }
-      await _mkcol(dirUri);
+      final baseUri = Uri.parse(config.serverUrl.trim());
+      final basePath = baseUri.path.endsWith('/')
+          ? baseUri.path.substring(0, baseUri.path.length - 1)
+          : baseUri.path;
+      var currentPath = basePath;
+      for (final segment in segments.take(segments.length - 1)) {
+        currentPath = '$currentPath/$segment';
+        final dirUri = baseUri.replace(path: currentPath);
+        if (await _collectionExists(dirUri)) {
+          continue;
+        }
+        await _mkcolBestEffort(dirUri);
+      }
+    } on CloudSyncException {
+      // 建目录仅为加速首次上传；失败不阻断后续 PUT（目录常已存在）。
     }
   }
 
@@ -292,6 +310,7 @@ class WebDavObjectStore implements ObjectStore {
           return http.Response.fromStream(streamed);
         },
         errorPrefix: 'WebDAV 检查目录失败',
+        timeout: _probeTimeout,
       );
       if (propfind.statusCode == 207 ||
           (propfind.statusCode >= 200 && propfind.statusCode < 300)) {
@@ -301,13 +320,14 @@ class WebDavObjectStore implements ObjectStore {
         return false;
       }
     } on CloudSyncException {
-      // 探测失败时回退 MKCOL
+      // 探测失败时视为未知
     }
 
     try {
       final get = await _guardRequest(
         () => _client.get(dirUri, headers: _headers()),
         errorPrefix: 'WebDAV 检查目录失败',
+        timeout: _probeTimeout,
       );
       return get.statusCode >= 200 && get.statusCode < 300;
     } on CloudSyncException {
@@ -315,10 +335,9 @@ class WebDavObjectStore implements ObjectStore {
     }
   }
 
-  Future<void> _mkcol(Uri dirUri) async {
-    late final http.Response response;
+  Future<void> _mkcolBestEffort(Uri dirUri) async {
     try {
-      response = await _guardRequest(
+      final response = await _guardRequest(
         () async {
           final request = http.Request('MKCOL', dirUri)
             ..headers.addAll(_headers());
@@ -326,27 +345,19 @@ class WebDavObjectStore implements ObjectStore {
           return http.Response.fromStream(streamed);
         },
         errorPrefix: '创建 WebDAV 目录失败',
+        timeout: _probeTimeout,
       );
-    } on CloudSyncException {
-      // 超时或网络抖动：若目录实际已存在则视为成功（恢复/加锁常见）。
-      if (await _collectionExists(dirUri)) {
+      if (response.statusCode == 201 ||
+          response.statusCode == 200 ||
+          response.statusCode == 405 ||
+          response.statusCode == 301 ||
+          response.statusCode == 302 ||
+          response.statusCode == 409) {
         return;
       }
-      rethrow;
+    } on CloudSyncException {
+      // 忽略：已存在目录或服务端对 MKCOL 不友好（如坚果云偶发超时）
     }
-    if (response.statusCode == 201 ||
-        response.statusCode == 200 ||
-        response.statusCode == 405 ||
-        response.statusCode == 301 ||
-        response.statusCode == 302 ||
-        response.statusCode == 409) {
-      return;
-    }
-    // 已存在时部分服务仍返回其它状态码；再确认一次。
-    if (await _collectionExists(dirUri)) {
-      return;
-    }
-    _ensureSuccess(response, defaultMessage: '创建 WebDAV 目录失败');
   }
 
   ObjectMeta _metaFromHeaders(Map<String, String> headers, int? contentLength) {
@@ -449,9 +460,10 @@ class WebDavObjectStore implements ObjectStore {
   Future<http.Response> _guardRequest(
     Future<http.Response> Function() request, {
     required String errorPrefix,
+    Duration? timeout,
   }) async {
     try {
-      return await request().timeout(_requestTimeout);
+      return await request().timeout(timeout ?? _requestTimeout);
     } on http.ClientException catch (e) {
       throw CloudSyncException('$errorPrefix：网络连接异常（${e.message}）');
     } on FormatException {

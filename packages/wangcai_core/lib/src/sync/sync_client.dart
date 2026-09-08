@@ -124,8 +124,15 @@ class SyncClient {
   }
 
   /// App「恢复覆盖」：持锁拉取远端并写入 [local]。
+  /// 加锁失败（如 WebDAV 建目录超时）时降级为不加锁拉取，避免恢复被阻断。
   Future<LedgerBundle> pullReplace(Ledger local) async {
-    await _acquireLock();
+    var locked = false;
+    try {
+      await _acquireLock();
+      locked = true;
+    } on CloudSyncException {
+      locked = false;
+    }
     try {
       final remote = await downloadBundle();
       if (remote == null) {
@@ -137,7 +144,9 @@ class SyncClient {
       local.replaceAll(remote);
       return remote;
     } finally {
-      await _releaseLock();
+      if (locked) {
+        await _releaseLock();
+      }
     }
   }
 
