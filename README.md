@@ -201,6 +201,9 @@ $BIN stats --period month
 发布建议使用 GitHub Actions 的 `Create Release (Auto Bump Patch)` 工作流。  
 CLI 多平台二进制可使用 `Build Wangcai CLI` 工作流（macos-arm64 + windows-x64）。
 
+**版本号单一信源**：仓库根目录 [`VERSION`](VERSION)（格式如 `0.2.2+3`）。  
+请勿手改 `pubspec.yaml` 的 `version`；本地发版前执行 `./tool/sync_version.sh`，CI 会自动同步并用 `--build-name` / `--build-number` 注入构建。
+
 ## 项目阶段总结
 
 截至当前阶段，旺财已完成从“可用原型”到“可日常使用 + 多端同步”的核心能力建设：

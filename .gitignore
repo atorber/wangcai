@@ -25,7 +25,9 @@
 /dev/integration_tests/**/xcuserdata
 /dev/integration_tests/**/Pods
 /packages/flutter/coverage/
+# Flutter SDK checkout artifact (lowercase). Keep root VERSION tracked as app SSOT.
 version
+!/VERSION
 analysis_benchmark.json
 
 # packages file containing multi-root paths

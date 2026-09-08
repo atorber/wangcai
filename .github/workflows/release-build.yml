@@ -22,6 +22,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Sync version from VERSION
+        id: app_version
+        run: |
+          if [ ! -f VERSION ]; then
+            echo "VERSION file is required as the single source of truth"
+            exit 1
+          fi
+          chmod +x tool/sync_version.sh
+          ./tool/sync_version.sh
+          RAW_VERSION="$(tr -d '[:space:]' < VERSION)"
+          NAME="${RAW_VERSION%%+*}"
+          CODE="${RAW_VERSION##*+}"
+          if [ "${CODE}" = "${RAW_VERSION}" ]; then
+            CODE="1"
+          fi
+          echo "name=${NAME}" >> "${GITHUB_OUTPUT}"
+          echo "code=${CODE}" >> "${GITHUB_OUTPUT}"
+          echo "Using build-name=${NAME} build-number=${CODE}"
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -38,10 +57,16 @@ jobs:
         run: flutter pub get
 
       - name: Build APK (release)
-        run: flutter build apk --release
+        run: >
+          flutter build apk --release
+          --build-name=${{ steps.app_version.outputs.name }}
+          --build-number=${{ steps.app_version.outputs.code }}
 
       - name: Build App Bundle (release)
-        run: flutter build appbundle --release
+        run: >
+          flutter build appbundle --release
+          --build-name=${{ steps.app_version.outputs.name }}
+          --build-number=${{ steps.app_version.outputs.code }}
 
       - name: Rename artifacts with version
         env:
