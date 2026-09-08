@@ -44,6 +44,22 @@ class WebDavObjectStore implements ObjectStore {
     String? contentType,
   }) async {
     await _ensureParentDirectories(path);
+
+    // 坚果云等会忽略 If-None-Match:* 仍返回 2xx 并覆盖文件，因此必须先探测存在性。
+    // 先 GET：已存在则视为未创建（锁被占用）。
+    final probe = await _guardRequest(
+      () => _client.get(_buildUri(path), headers: _headers()),
+      errorPrefix: 'WebDAV 读取失败',
+    );
+    if (probe.statusCode == 200) {
+      return false;
+    }
+    if (probe.statusCode != 404 &&
+        probe.statusCode != 405 &&
+        probe.statusCode != 409) {
+      _ensureSuccess(probe, defaultMessage: 'WebDAV 读取失败');
+    }
+
     final conditional = await _guardRequest(
       () => _client.put(
         _buildUri(path),
@@ -56,16 +72,16 @@ class WebDavObjectStore implements ObjectStore {
       errorPrefix: 'WebDAV 条件上传失败',
     );
 
+    if (conditional.statusCode == 412 || conditional.statusCode == 409) {
+      return false;
+    }
     if (conditional.statusCode == 200 ||
         conditional.statusCode == 201 ||
         conditional.statusCode == 204) {
       return true;
     }
-    if (conditional.statusCode == 412 || conditional.statusCode == 409) {
-      return false;
-    }
 
-    // 服务端不支持 If-None-Match 时回退：先 GET，404 再 PUT。
+    // 服务端不支持 If-None-Match 时回退：再 GET，404 再 PUT。
     if (_looksLikeUnsupportedPrecondition(conditional.statusCode)) {
       return _putIfAbsentFallback(path, bytes, contentType: contentType);
     }
