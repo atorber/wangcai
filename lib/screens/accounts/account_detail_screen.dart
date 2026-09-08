@@ -118,6 +118,22 @@ class AccountDetailScreen extends StatelessWidget {
                   : AppColors.tertiary,
             ),
           ),
+          if (account.isCreditCard) ...[
+            const SizedBox(height: 16),
+            Text(
+              [
+                if (account.creditLimit != null)
+                  '额度 ¥${account.creditLimit!.toStringAsFixed(0)}',
+                if (account.availableCredit != null)
+                  '可用 ¥${account.availableCredit!.toStringAsFixed(0)}',
+                if (account.billingDay != null) '账单日 ${account.billingDay}',
+                if (account.paymentDay != null) '还款日 ${account.paymentDay}',
+              ].join(' · '),
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: AppColors.onSurfaceVariant,
+              ),
+            ),
+          ],
         ],
       ),
     );

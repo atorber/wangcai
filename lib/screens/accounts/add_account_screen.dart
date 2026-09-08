@@ -15,6 +15,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   int _selectedTypeIndex = 0;
   final TextEditingController _balanceController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _creditLimitController = TextEditingController();
+  int _billingDay = 1;
+  int _paymentDay = 20;
   final List<String> _accountTypeKeys = const [
     'debitCard',
     'creditCard',
@@ -29,6 +32,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   void dispose() {
     _balanceController.dispose();
     _nameController.dispose();
+    _creditLimitController.dispose();
     super.dispose();
   }
 
@@ -48,9 +52,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
         ),
         title: Text(
           '添加账户',
-          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                color: AppColors.onBackground,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.displayMedium?.copyWith(color: AppColors.onBackground),
         ),
         centerTitle: true,
       ),
@@ -77,9 +81,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       children: [
         Text(
           '初始余额',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         Stack(
@@ -101,11 +105,13 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
               width: 200,
               child: TextField(
                 controller: _balanceController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                      color: AppColors.onBackground,
-                    ),
+                  color: AppColors.onBackground,
+                ),
                 decoration: const InputDecoration(
                   hintText: '0.00',
                   border: InputBorder.none,
@@ -140,7 +146,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
             color: Color(0x0A000000),
             blurRadius: 20,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Column(
@@ -149,8 +155,69 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
           _buildAccountNameField(),
           const SizedBox(height: 32),
           _buildAccountTypeGrid(),
+          if (_selectedTypeKey == 'creditCard') ...[
+            const SizedBox(height: 24),
+            _buildCreditFields(),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildCreditFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '信用卡设置',
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceVariant),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _creditLimitController,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: '信用额度',
+            hintText: '例如 20000',
+          ),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: _billingDay,
+          items: List.generate(
+            28,
+            (index) => DropdownMenuItem(
+              value: index + 1,
+              child: Text('账单日：每月 ${index + 1} 日'),
+            ),
+          ),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _billingDay = value);
+            }
+          },
+          decoration: const InputDecoration(labelText: '账单日'),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<int>(
+          initialValue: _paymentDay,
+          items: List.generate(
+            28,
+            (index) => DropdownMenuItem(
+              value: index + 1,
+              child: Text('还款日：每月 ${index + 1} 日'),
+            ),
+          ),
+          onChanged: (value) {
+            if (value != null) {
+              setState(() => _paymentDay = value);
+            }
+          },
+          decoration: const InputDecoration(labelText: '还款日'),
+        ),
+      ],
     );
   }
 
@@ -160,9 +227,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       children: [
         Text(
           '账户名称',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         Container(
@@ -173,16 +240,19 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
           ),
           child: TextField(
             controller: _nameController,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.onBackground,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.onBackground),
             decoration: InputDecoration(
               hintText: '例如：招商银行储蓄卡',
-              hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.outlineVariant,
-                  ),
+              hintStyle: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.outlineVariant),
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
             ),
           ),
         ),
@@ -196,9 +266,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       children: [
         Text(
           '账户类型',
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceVariant),
         ),
         const SizedBox(height: 8),
         GridView.builder(
@@ -224,7 +294,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                 duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primaryContainer : AppColors.surfaceContainer,
+                  color: isSelected
+                      ? AppColors.primaryContainer
+                      : AppColors.surfaceContainer,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.transparent),
                 ),
@@ -234,15 +306,19 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                   children: [
                     Icon(
                       _iconForType(accountTypeKey),
-                      color: isSelected ? AppColors.onPrimaryContainer : AppColors.onSurfaceVariant,
+                      color: isSelected
+                          ? AppColors.onPrimaryContainer
+                          : AppColors.onSurfaceVariant,
                       size: 20,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       _labelForType(accountTypeKey),
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                            color: isSelected ? AppColors.onPrimaryContainer : AppColors.onSurface,
-                          ),
+                        color: isSelected
+                            ? AppColors.onPrimaryContainer
+                            : AppColors.onSurface,
+                      ),
                     ),
                   ],
                 ),
@@ -261,9 +337,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.onPrimary,
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         elevation: 8,
         shadowColor: AppColors.primary.withValues(alpha: 0.2),
       ),
@@ -275,9 +349,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
           Text(
             '确认添加',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: AppColors.onPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: AppColors.onPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -287,29 +361,43 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   void _submit() {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入账户名称')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入账户名称')));
       return;
     }
 
     final balanceText = _balanceController.text.trim();
     final balance = balanceText.isEmpty ? 0.0 : double.tryParse(balanceText);
     if (balance == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请输入合法金额')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入合法金额')));
       return;
     }
 
     if (_selectedTypeKey == 'lender') {
       context.read<AccountProvider>().addLender(name);
     } else {
+      final isCredit = _selectedTypeKey == 'creditCard';
+      final creditLimitText = _creditLimitController.text.trim();
+      final creditLimit = creditLimitText.isEmpty
+          ? null
+          : double.tryParse(creditLimitText);
+      if (isCredit && creditLimitText.isNotEmpty && creditLimit == null) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('请输入合法信用额度')));
+        return;
+      }
       context.read<AccountProvider>().addAccount(
-            name: name,
-            type: _accountTypeFromKey(_selectedTypeKey),
-            balance: balance,
-          );
+        name: name,
+        type: _accountTypeFromKey(_selectedTypeKey),
+        balance: balance,
+        creditLimit: isCredit ? creditLimit : null,
+        billingDay: isCredit ? _billingDay : null,
+        paymentDay: isCredit ? _paymentDay : null,
+      );
     }
 
     Navigator.of(context).pop(true);

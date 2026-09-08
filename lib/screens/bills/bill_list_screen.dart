@@ -24,6 +24,9 @@ class _BillListScreenState extends State<BillListScreen> {
   int _selectedTypeIndex = 0;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _calendarMode = false;
+  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  DateTime? _selectedCalendarDay;
   static const List<String> _typeFilters = ['全部', '支出', '收入', '转账', '借贷'];
 
   @override
@@ -56,6 +59,20 @@ class _BillListScreenState extends State<BillListScreen> {
             color: AppColors.primary,
           ),
         ),
+        actions: [
+          IconButton(
+            tooltip: _calendarMode ? '列表视图' : '日历视图',
+            onPressed: () {
+              setState(() {
+                _calendarMode = !_calendarMode;
+              });
+            },
+            icon: Icon(
+              _calendarMode ? Icons.view_list : Icons.calendar_month,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
       ),
       body: Consumer<TransactionProvider>(
         builder: (context, provider, _) {
@@ -88,30 +105,35 @@ class _BillListScreenState extends State<BillListScreen> {
             children: [
               _buildFilterSection(context),
               Expanded(
-                child: ListView.separated(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                  itemCount:
-                      groupedRecords.length + (records.length < total ? 1 : 0),
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    if (index >= groupedRecords.length) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Center(
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    }
-                    final item = groupedRecords[index];
-                    if (item is String) {
-                      return _buildMonthHeader(context, item);
-                    }
-                    final record = item as TransactionRecord;
-                    return _buildBillItem(context, record);
-                  },
-                ),
+                child: _calendarMode
+                    ? _buildCalendarView(context, provider, filter)
+                    : ListView.separated(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                        itemCount:
+                            groupedRecords.length +
+                            (records.length < total ? 1 : 0),
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          if (index >= groupedRecords.length) {
+                            return const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            );
+                          }
+                          final item = groupedRecords[index];
+                          if (item is String) {
+                            return _buildMonthHeader(context, item);
+                          }
+                          final record = item as TransactionRecord;
+                          return _buildBillItem(context, record);
+                        },
+                      ),
               ),
             ],
           );
@@ -119,6 +141,7 @@ class _BillListScreenState extends State<BillListScreen> {
       ),
     );
   }
+
 
   Widget _buildFilterSection(BuildContext context) {
     return Container(
@@ -485,6 +508,216 @@ class _BillListScreenState extends State<BillListScreen> {
 
   String _shortDate(DateTime value) {
     return '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildCalendarView(
+    BuildContext context,
+    TransactionProvider provider,
+    TransactionQueryFilter baseFilter,
+  ) {
+    final monthStart = DateTime(_calendarMonth.year, _calendarMonth.month, 1);
+    final monthEnd = DateTime(
+      _calendarMonth.year,
+      _calendarMonth.month + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
+    final monthFilter = TransactionQueryFilter(
+      type: baseFilter.type,
+      types: baseFilter.types,
+      startDate: monthStart,
+      endDate: monthEnd,
+      keyword: baseFilter.keyword,
+    );
+    final monthRecords = provider.queryPage(
+      offset: 0,
+      limit: 5000,
+      filter: monthFilter,
+    );
+    final byDay = <int, List<TransactionRecord>>{};
+    for (final record in monthRecords) {
+      byDay.putIfAbsent(record.date.day, () => []).add(record);
+    }
+    final selectedDay = _selectedCalendarDay ?? DateTime.now();
+    final selectedKey = DateTime(
+      selectedDay.year,
+      selectedDay.month,
+      selectedDay.day,
+    );
+    final selectedRecords =
+        (selectedKey.year == _calendarMonth.year &&
+            selectedKey.month == _calendarMonth.month)
+        ? (byDay[selectedKey.day] ?? const <TransactionRecord>[])
+        : const <TransactionRecord>[];
+
+    final firstWeekday = monthStart.weekday;
+    final daysInMonth = monthEnd.day;
+    final leading = firstWeekday - 1;
+    final totalCells = ((leading + daysInMonth + 6) ~/ 7) * 7;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _calendarMonth = DateTime(
+                    _calendarMonth.year,
+                    _calendarMonth.month - 1,
+                  );
+                });
+              },
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Expanded(
+              child: Text(
+                '${_calendarMonth.year}年${_calendarMonth.month}月',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                setState(() {
+                  _calendarMonth = DateTime(
+                    _calendarMonth.year,
+                    _calendarMonth.month + 1,
+                  );
+                });
+              },
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: ['一', '二', '三', '四', '五', '六', '日']
+              .map(
+                (label) => Expanded(
+                  child: Center(
+                    child: Text(
+                      label,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppColors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        ),
+        const SizedBox(height: 6),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: totalCells,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            mainAxisSpacing: 4,
+            crossAxisSpacing: 4,
+            childAspectRatio: 0.85,
+          ),
+          itemBuilder: (context, index) {
+            final dayNumber = index - leading + 1;
+            if (dayNumber < 1 || dayNumber > daysInMonth) {
+              return const SizedBox.shrink();
+            }
+            final dayDate = DateTime(
+              _calendarMonth.year,
+              _calendarMonth.month,
+              dayNumber,
+            );
+            final dayRecords = byDay[dayNumber] ?? const [];
+            final isSelected =
+                selectedKey.year == dayDate.year &&
+                selectedKey.month == dayDate.month &&
+                selectedKey.day == dayDate.day;
+            final hasRecords = dayRecords.isNotEmpty;
+            double expense = 0;
+            for (final item in dayRecords) {
+              if (item.type == TransactionType.expense ||
+                  item.type == TransactionType.lend ||
+                  item.type == TransactionType.transfer) {
+                expense += item.amount;
+              }
+            }
+            return InkWell(
+              onTap: () {
+                setState(() {
+                  _selectedCalendarDay = dayDate;
+                });
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? AppColors.primaryContainer.withValues(alpha: 0.16)
+                      : AppColors.surfaceContainerLowest,
+                  borderRadius: BorderRadius.circular(8),
+                  border: isSelected
+                      ? Border.all(color: AppColors.primaryContainer)
+                      : null,
+                ),
+                padding: const EdgeInsets.all(4),
+                child: Column(
+                  children: [
+                    Text(
+                      '$dayNumber',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (hasRecords)
+                      Text(
+                        expense > 0 ? '-${expense.toStringAsFixed(0)}' : '·',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: AppColors.tertiary,
+                          fontSize: 10,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '${selectedKey.month}月${selectedKey.day}日 · ${selectedRecords.length} 笔',
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: AppColors.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (selectedRecords.isEmpty)
+          Text(
+            '当天暂无账单，适合补记漏账',
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant),
+          )
+        else
+          ...selectedRecords.map(
+            (record) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: _buildBillItem(context, record),
+            ),
+          ),
+      ],
+    );
   }
 
   String _formatDate(DateTime date) {

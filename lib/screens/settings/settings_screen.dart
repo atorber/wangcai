@@ -9,13 +9,15 @@ import 'package:finance_app/providers/category_provider.dart';
 import 'package:finance_app/providers/security_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/screens/settings/about_screen.dart';
+import 'package:finance_app/screens/settings/bill_import_screen.dart';
 import 'package:finance_app/screens/settings/category_management_screen.dart';
+import 'package:finance_app/screens/settings/recurring_management_screen.dart';
 import 'package:finance_app/screens/settings/security_privacy_screen.dart';
 import 'package:finance_app/services/data_export_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:file_selector/file_selector.dart';
-import 'package:finance_app/screens/settings/webdav_backup_setup_screen.dart'
-    as finance_webdav_setup;
+import 'package:finance_app/screens/settings/cloud_backup_setup_screen.dart';
+import 'package:finance_app/providers/recurring_provider.dart';
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -125,16 +127,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           Text(
             '旺财',
-            style: Theme.of(context).textTheme.displayMedium?.copyWith(
-              color: AppColors.onSurface,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
           ),
           const SizedBox(height: 4),
           Text(
             '本地记账，数据只留在本机',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.secondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: AppColors.secondary),
           ),
         ],
       ),
@@ -184,6 +186,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildDivider(),
               _buildSettingsItem(
                 context,
+                Icons.event_repeat,
+                '周期账单',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const RecurringManagementScreen(),
+                    ),
+                  );
+                },
+              ),
+              _buildDivider(),
+              _buildSettingsItem(
+                context,
+                Icons.receipt_long,
+                '导入支付宝/微信账单',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BillImportScreen()),
+                  );
+                },
+              ),
+              _buildDivider(),
+              _buildSettingsItem(
+                context,
                 Icons.ios_share,
                 '导出数据',
                 onTap: _isExporting ? () {} : () => _showExportSheet(context),
@@ -213,12 +239,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildSettingsItem(
                 context,
                 Icons.sync,
-                'WebDAV 云备份',
+                '云备份 (WebDAV / S3)',
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const finance_webdav_setup.WebDavBackupSetupScreen(),
+                      builder: (_) => const CloudBackupSetupScreen(),
                     ),
                   );
                 },
@@ -700,6 +725,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final categoryProvider = context.read<CategoryProvider>();
     final transactionProvider = context.read<TransactionProvider>();
     final budgetProvider = context.read<BudgetProvider>();
+    final recurringProvider = context.read<RecurringProvider>();
     final securityProvider = context.read<SecurityProvider>();
     final appSettingsProvider = context.read<AppSettingsProvider>();
 
@@ -707,6 +733,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await accountProvider.replaceLenders(const []);
     await categoryProvider.replaceAll(const []);
     await budgetProvider.replaceAll(const []);
+    await recurringProvider.replaceAll(const []);
     await transactionProvider.replaceAll(const []);
     await securityProvider.setAppLockEnabled(false);
     await securityProvider.setBiometricEnabled(false);

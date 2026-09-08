@@ -56,14 +56,14 @@ class AccountProvider extends ChangeNotifier {
   bool get loaded => _loaded;
 
   double get totalAssets => _accounts.fold(
-        0,
-        (sum, account) => account.balance > 0 ? sum + account.balance : sum,
-      );
+    0,
+    (sum, account) => account.balance > 0 ? sum + account.balance : sum,
+  );
 
   double get totalLiabilities => _accounts.fold(
-        0,
-        (sum, account) => account.balance < 0 ? sum + account.balance.abs() : sum,
-      );
+    0,
+    (sum, account) => account.balance < 0 ? sum + account.balance.abs() : sum,
+  );
 
   double get netAssets => totalAssets - totalLiabilities;
 
@@ -71,16 +71,37 @@ class AccountProvider extends ChangeNotifier {
     required String name,
     required AccountType type,
     required double balance,
+    double? creditLimit,
+    int? billingDay,
+    int? paymentDay,
   }) {
     final account = Account(
       id: '${DateTime.now().microsecondsSinceEpoch}',
       name: name,
       type: type,
       balance: balance,
+      creditLimit: type == AccountType.creditCard ? creditLimit : null,
+      billingDay: type == AccountType.creditCard ? billingDay : null,
+      paymentDay: type == AccountType.creditCard ? paymentDay : null,
     );
     _accounts.add(account);
     _persistAccountsToLocal();
     notifyListeners();
+  }
+
+  List<Account> get upcomingCreditPayments {
+    final cards = _accounts.where((item) => item.isCreditCard).toList();
+    cards.sort((a, b) {
+      final aDays = a.daysUntilPayment() ?? 999;
+      final bDays = b.daysUntilPayment() ?? 999;
+      return aDays.compareTo(bDays);
+    });
+    return cards
+        .where((item) {
+          final days = item.daysUntilPayment();
+          return days != null && days <= 7;
+        })
+        .toList(growable: false);
   }
 
   bool removeAccount(
@@ -103,18 +124,24 @@ class AccountProvider extends ChangeNotifier {
     required String id,
     required String name,
     required double balance,
+    double? creditLimit,
+    int? billingDay,
+    int? paymentDay,
   }) async {
     final index = _accounts.indexWhere((account) => account.id == id);
     if (index == -1) {
       return;
     }
     final current = _accounts[index];
-    _accounts[index] = Account(
-      id: current.id,
+    _accounts[index] = current.copyWith(
       name: name,
-      type: current.type,
       balance: balance,
-      subtitle: current.subtitle,
+      creditLimit: current.isCreditCard ? creditLimit : null,
+      billingDay: current.isCreditCard ? billingDay : null,
+      paymentDay: current.isCreditCard ? paymentDay : null,
+      clearCreditLimit: !current.isCreditCard || creditLimit == null,
+      clearBillingDay: !current.isCreditCard || billingDay == null,
+      clearPaymentDay: !current.isCreditCard || paymentDay == null,
     );
     await _persistAccountsToLocal();
     notifyListeners();
@@ -146,10 +173,7 @@ class AccountProvider extends ChangeNotifier {
       return;
     }
     _lenders.add(
-      Lender(
-        id: '${DateTime.now().microsecondsSinceEpoch}',
-        name: trimmed,
-      ),
+      Lender(id: '${DateTime.now().microsecondsSinceEpoch}', name: trimmed),
     );
     await _persistLendersToLocal();
     notifyListeners();
@@ -239,17 +263,24 @@ class AccountProvider extends ChangeNotifier {
 
   Future<void> _persistAccountsToLocal() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = jsonEncode(_accounts.map((e) => e.toJson()).toList(growable: false));
+    final raw = jsonEncode(
+      _accounts.map((e) => e.toJson()).toList(growable: false),
+    );
     await prefs.setString(_accountsStorageKey, raw);
   }
 
   Future<void> _persistLendersToLocal() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = jsonEncode(_lenders.map((e) => e.toJson()).toList(growable: false));
+    final raw = jsonEncode(
+      _lenders.map((e) => e.toJson()).toList(growable: false),
+    );
     await prefs.setString(_lendersStorageKey, raw);
   }
 
-  void _applyTransactionDelta(TransactionRecord record, {required bool isRevert}) {
+  void _applyTransactionDelta(
+    TransactionRecord record, {
+    required bool isRevert,
+  }) {
     final sign = isRevert ? -1.0 : 1.0;
     switch (record.type) {
       case TransactionType.expense:
@@ -260,7 +291,8 @@ class AccountProvider extends ChangeNotifier {
         break;
       case TransactionType.transfer:
         _adjustAccount(record.accountId, -record.amount * sign);
-        if (record.transferAccountId != null && record.transferAccountId!.isNotEmpty) {
+        if (record.transferAccountId != null &&
+            record.transferAccountId!.isNotEmpty) {
           _adjustAccount(record.transferAccountId!, record.amount * sign);
         }
         break;
@@ -285,13 +317,7 @@ class AccountProvider extends ChangeNotifier {
       return;
     }
     final account = _accounts[index];
-    _accounts[index] = Account(
-      id: account.id,
-      name: account.name,
-      type: account.type,
-      balance: account.balance + delta,
-      subtitle: account.subtitle,
-    );
+    _accounts[index] = account.copyWith(balance: account.balance + delta);
   }
 
   void _adjustLender(String id, double delta) {

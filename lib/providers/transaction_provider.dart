@@ -174,6 +174,19 @@ class TransactionProvider extends ChangeNotifier {
     return record;
   }
 
+  /// 按既定 id 写入；若已存在则返回 null（用于周期账单幂等入账）。
+  Future<TransactionRecord?> addIfAbsent(TransactionRecord record) async {
+    final exists = _transactions.any((item) => item.id == record.id);
+    if (exists) {
+      return null;
+    }
+    _transactions.insert(0, record);
+    _markCacheDirty();
+    await _persistToLocal();
+    notifyListeners();
+    return record;
+  }
+
   Future<void> replaceAll(List<TransactionRecord> records) async {
     _transactions
       ..clear()

@@ -8,7 +8,8 @@ import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/widgets/privacy_amount_text.dart';
-import 'package:finance_app/screens/accounts/add_account_screen.dart' as finance_add_account;
+import 'package:finance_app/screens/accounts/add_account_screen.dart'
+    as finance_add_account;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 
@@ -20,7 +21,9 @@ class AssetOverviewScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withValues(alpha: 0.9),
+        backgroundColor: AppColors.surfaceContainerLowest.withValues(
+          alpha: 0.9,
+        ),
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         scrolledUnderElevation: 4,
@@ -29,13 +32,16 @@ class AssetOverviewScreen extends StatelessWidget {
         title: Text(
           '资产概览',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.primary,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppColors.primary,
+          ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none, color: AppColors.primaryContainer),
+            icon: const Icon(
+              Icons.notifications_none,
+              color: AppColors.primaryContainer,
+            ),
             onPressed: () {},
           ),
         ],
@@ -47,21 +53,23 @@ class AssetOverviewScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildTotalAssetsCard(context, accountProvider),
+              const SizedBox(height: 16),
+              _buildCreditReminders(context, accountProvider),
               const SizedBox(height: 24),
               Text(
                 '我的账户',
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: AppColors.onSurface,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
               ),
               const SizedBox(height: 16),
               _buildAccountGrid(context, accountProvider.accounts),
               const SizedBox(height: 24),
               Text(
                 '借贷人',
-                style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                      color: AppColors.onSurface,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
               ),
               const SizedBox(height: 16),
               _buildLenderGrid(context, accountProvider.lenders),
@@ -75,7 +83,10 @@ class AssetOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTotalAssetsCard(BuildContext context, AccountProvider accountProvider) {
+  Widget _buildTotalAssetsCard(
+    BuildContext context,
+    AccountProvider accountProvider,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surfaceContainerLowest,
@@ -85,7 +96,7 @@ class AssetOverviewScreen extends StatelessWidget {
             color: Color(0x0A000000),
             blurRadius: 20,
             offset: Offset(0, 4),
-          )
+          ),
         ],
       ),
       child: Stack(
@@ -113,8 +124,8 @@ class AssetOverviewScreen extends StatelessWidget {
                 Text(
                   '总资产',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -123,17 +134,16 @@ class AssetOverviewScreen extends StatelessWidget {
                   children: [
                     Text(
                       '¥',
-                      style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                            color: AppColors.primary,
-                          ),
+                      style: Theme.of(context).textTheme.displayMedium
+                          ?.copyWith(color: AppColors.primary),
                     ),
                     const SizedBox(width: 4),
                     PrivacyAmountText(
                       amount: accountProvider.totalAssets,
                       prefix: '',
                       style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                            color: AppColors.primary,
-                          ),
+                        color: AppColors.primary,
+                      ),
                     ),
                   ],
                 ),
@@ -155,17 +165,15 @@ class AssetOverviewScreen extends StatelessWidget {
                           children: [
                             Text(
                               '净资产',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: AppColors.onSurfaceVariant,
-                                  ),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: AppColors.onSurfaceVariant),
                             ),
                             const SizedBox(height: 4),
                             PrivacyAmountText(
                               amount: accountProvider.netAssets,
                               prefix: '¥ ',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.onSurface,
-                                  ),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: AppColors.onSurface),
                             ),
                           ],
                         ),
@@ -177,17 +185,15 @@ class AssetOverviewScreen extends StatelessWidget {
                           children: [
                             Text(
                               '总负债',
-                              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: AppColors.onSurfaceVariant,
-                                  ),
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: AppColors.onSurfaceVariant),
                             ),
                             const SizedBox(height: 4),
                             PrivacyAmountText(
                               amount: accountProvider.totalLiabilities,
                               prefix: '¥ ',
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: AppColors.tertiary,
-                                  ),
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(color: AppColors.tertiary),
                             ),
                           ],
                         ),
@@ -198,6 +204,51 @@ class AssetOverviewScreen extends StatelessWidget {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreditReminders(
+    BuildContext context,
+    AccountProvider accountProvider,
+  ) {
+    final upcoming = accountProvider.upcomingCreditPayments;
+    if (upcoming.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.tertiaryFixed.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '近 7 日还款提醒',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: AppColors.tertiary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...upcoming.map((account) {
+            final days = account.daysUntilPayment() ?? 0;
+            final dayText = days == 0 ? '今天' : '$days 天后';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                '${account.name} · 还款日 ${account.paymentDay} 日（$dayText）'
+                '${account.creditLimit != null ? ' · 额度 ¥${account.creditLimit!.toStringAsFixed(0)}' : ''}',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurface),
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -214,9 +265,9 @@ class AssetOverviewScreen extends StatelessWidget {
         ),
         child: Text(
           '暂无账户，点击下方按钮添加',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       );
@@ -251,9 +302,9 @@ class AssetOverviewScreen extends StatelessWidget {
         ),
         child: Text(
           '暂无借贷人',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.onSurfaceVariant,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant),
           textAlign: TextAlign.center,
         ),
       );
@@ -281,9 +332,7 @@ class AssetOverviewScreen extends StatelessWidget {
     final isReceivable = lender.balance > 0;
     final card = InkWell(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => LenderDetailScreen(lender: lender),
-        ),
+        MaterialPageRoute(builder: (_) => LenderDetailScreen(lender: lender)),
       ),
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -296,7 +345,7 @@ class AssetOverviewScreen extends StatelessWidget {
               color: Color(0x0A000000),
               blurRadius: 20,
               offset: Offset(0, 4),
-            )
+            ),
           ],
         ),
         child: Column(
@@ -312,15 +361,19 @@ class AssetOverviewScreen extends StatelessWidget {
                     color: AppColors.primary.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.person_outline, color: AppColors.primary, size: 20),
+                  child: const Icon(
+                    Icons.person_outline,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     lender.name,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.onSurface,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyLarge?.copyWith(color: AppColors.onSurface),
                   ),
                 ),
               ],
@@ -333,15 +386,17 @@ class AssetOverviewScreen extends StatelessWidget {
                 Text(
                   isReceivable ? '应收' : '应付',
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
                 PrivacyAmountText(
                   amount: lender.balance.abs(),
                   prefix: '¥ ',
                   style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: isReceivable ? AppColors.primaryContainer : AppColors.tertiary,
-                      ),
+                    color: isReceivable
+                        ? AppColors.primaryContainer
+                        : AppColors.tertiary,
+                  ),
                 ),
               ],
             ),
@@ -380,7 +435,9 @@ class AssetOverviewScreen extends StatelessWidget {
       subtitle: account.name,
       balanceLabel: account.isLiability ? '负债' : '余额',
       balanceAmount: account.balance,
-      balanceColor: account.isLiability ? AppColors.tertiary : AppColors.onSurface,
+      balanceColor: account.isLiability
+          ? AppColors.tertiary
+          : AppColors.onSurface,
       tag: account.subtitle.isNotEmpty ? account.subtitle : null,
       onEdit: () => _showEditAccountDialog(context, account),
       onDelete: () => _showDeleteDialog(context, account),
@@ -421,7 +478,7 @@ class AssetOverviewScreen extends StatelessWidget {
               color: Color(0x0A000000),
               blurRadius: 20,
               offset: Offset(0, 4),
-            )
+            ),
           ],
         ),
         child: Column(
@@ -448,15 +505,13 @@ class AssetOverviewScreen extends StatelessWidget {
                       children: [
                         Text(
                           title,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                color: AppColors.onSurface,
-                              ),
+                          style: Theme.of(context).textTheme.bodyLarge
+                              ?.copyWith(color: AppColors.onSurface),
                         ),
                         Text(
                           subtitle,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: AppColors.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: AppColors.onSurfaceVariant),
                         ),
                       ],
                     ),
@@ -466,16 +521,18 @@ class AssetOverviewScreen extends StatelessWidget {
                   children: [
                     if (tag != null)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primaryFixed,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
                           tag,
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: AppColors.onPrimaryFixed,
-                              ),
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: AppColors.onPrimaryFixed),
                         ),
                       ),
                   ],
@@ -490,15 +547,15 @@ class AssetOverviewScreen extends StatelessWidget {
                 Text(
                   balanceLabel,
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: AppColors.onSurfaceVariant,
-                      ),
+                    color: AppColors.onSurfaceVariant,
+                  ),
                 ),
                 PrivacyAmountText(
                   amount: balanceAmount,
                   prefix: '¥ ',
-                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                        color: balanceColor,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.displayMedium?.copyWith(color: balanceColor),
                 ),
               ],
             ),
@@ -544,7 +601,9 @@ class AssetOverviewScreen extends StatelessWidget {
   Widget _buildAddAccountButton(BuildContext context) {
     return InkWell(
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const finance_add_account.AddAccountScreen()),
+        MaterialPageRoute(
+          builder: (_) => const finance_add_account.AddAccountScreen(),
+        ),
       ),
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -557,7 +616,7 @@ class AssetOverviewScreen extends StatelessWidget {
               color: Color(0x0A000000),
               blurRadius: 20,
               offset: Offset(0, 4),
-            )
+            ),
           ],
         ),
         child: Row(
@@ -568,9 +627,9 @@ class AssetOverviewScreen extends StatelessWidget {
             Text(
               '添加账户',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.primary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                color: AppColors.primary,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),
@@ -585,9 +644,15 @@ class AssetOverviewScreen extends StatelessWidget {
       case AccountType.creditCard:
         return (AppColors.tertiary, AppColors.tertiary.withValues(alpha: 0.1));
       case AccountType.alipay:
-        return (const Color(0xFF1677FF), const Color(0xFF1677FF).withValues(alpha: 0.1));
+        return (
+          const Color(0xFF1677FF),
+          const Color(0xFF1677FF).withValues(alpha: 0.1),
+        );
       case AccountType.wechatPay:
-        return (const Color(0xFF07C160), const Color(0xFF07C160).withValues(alpha: 0.1));
+        return (
+          const Color(0xFF07C160),
+          const Color(0xFF07C160).withValues(alpha: 0.1),
+        );
       case AccountType.cash:
         return (AppColors.onSurface, AppColors.surfaceVariant);
       case AccountType.other:
@@ -616,20 +681,26 @@ class AssetOverviewScreen extends StatelessWidget {
 
     if (shouldDelete == true && context.mounted) {
       final removed = context.read<AccountProvider>().removeAccount(
-            account.id,
-            relatedTransactions: context.read<TransactionProvider>().transactions,
-          );
+        account.id,
+        relatedTransactions: context.read<TransactionProvider>().transactions,
+      );
       if (!removed && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('该账户已有关联账单，无法删除')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('该账户已有关联账单，无法删除')));
       }
     }
   }
 
-  Future<void> _showEditAccountDialog(BuildContext context, Account account) async {
+  Future<void> _showEditAccountDialog(
+    BuildContext context,
+    Account account,
+  ) async {
     var nameValue = account.name;
     var balanceValue = account.balance.toStringAsFixed(2);
+    var creditLimitValue = account.creditLimit?.toStringAsFixed(2) ?? '';
+    var billingDay = account.billingDay ?? 1;
+    var paymentDay = account.paymentDay ?? 20;
     bool shouldCreateAdjustment = false;
 
     final confirmed = await showDialog<bool>(
@@ -645,19 +716,62 @@ class AssetOverviewScreen extends StatelessWidget {
                   initialValue: nameValue,
                   onChanged: (value) => nameValue = value,
                   autofocus: true,
-                  decoration: const InputDecoration(
-                    labelText: '账户名称',
-                  ),
+                  decoration: const InputDecoration(labelText: '账户名称'),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   initialValue: balanceValue,
                   onChanged: (value) => balanceValue = value,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: '账户余额',
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
                   ),
+                  decoration: const InputDecoration(labelText: '账户余额'),
                 ),
+                if (account.isCreditCard) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    initialValue: creditLimitValue,
+                    onChanged: (value) => creditLimitValue = value,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    decoration: const InputDecoration(labelText: '信用额度'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: billingDay,
+                    items: List.generate(
+                      28,
+                      (index) => DropdownMenuItem(
+                        value: index + 1,
+                        child: Text('账单日 ${index + 1}'),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => billingDay = value);
+                      }
+                    },
+                    decoration: const InputDecoration(labelText: '账单日'),
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<int>(
+                    initialValue: paymentDay,
+                    items: List.generate(
+                      28,
+                      (index) => DropdownMenuItem(
+                        value: index + 1,
+                        child: Text('还款日 ${index + 1}'),
+                      ),
+                    ),
+                    onChanged: (value) {
+                      if (value != null) {
+                        setDialogState(() => paymentDay = value);
+                      }
+                    },
+                    decoration: const InputDecoration(labelText: '还款日'),
+                  ),
+                ],
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   value: shouldCreateAdjustment,
@@ -692,9 +806,19 @@ class AssetOverviewScreen extends StatelessWidget {
     final messenger = ScaffoldMessenger.of(context);
     final name = nameValue.trim();
     final balance = double.tryParse(balanceValue.trim());
+    final creditLimitText = creditLimitValue.trim();
+    final creditLimit = creditLimitText.isEmpty
+        ? null
+        : double.tryParse(creditLimitText);
 
     if (name.isEmpty || balance == null) {
       messenger.showSnackBar(const SnackBar(content: Text('请输入合法名称和余额')));
+      return;
+    }
+    if (account.isCreditCard &&
+        creditLimitText.isNotEmpty &&
+        creditLimit == null) {
+      messenger.showSnackBar(const SnackBar(content: Text('请输入合法信用额度')));
       return;
     }
 
@@ -706,6 +830,9 @@ class AssetOverviewScreen extends StatelessWidget {
       id: account.id,
       name: name,
       balance: shouldCreateAdjustment ? previousBalance : balance,
+      creditLimit: account.isCreditCard ? creditLimit : null,
+      billingDay: account.isCreditCard ? billingDay : null,
+      paymentDay: account.isCreditCard ? paymentDay : null,
     );
 
     if (shouldCreateAdjustment) {
@@ -730,7 +857,10 @@ class AssetOverviewScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _showEditLenderDialog(BuildContext context, Lender lender) async {
+  Future<void> _showEditLenderDialog(
+    BuildContext context,
+    Lender lender,
+  ) async {
     var nameValue = lender.name;
 
     final confirmed = await showDialog<bool>(
@@ -786,10 +916,10 @@ class AssetOverviewScreen extends StatelessWidget {
     }
 
     await context.read<AccountProvider>().updateLender(
-          id: lender.id,
-          name: name,
-          balance: lender.balance,
-        );
+      id: lender.id,
+      name: name,
+      balance: lender.balance,
+    );
     if (context.mounted) {
       messenger.showSnackBar(const SnackBar(content: Text('借贷人已更新')));
     }
