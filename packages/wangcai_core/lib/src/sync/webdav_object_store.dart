@@ -11,7 +11,7 @@ class WebDavObjectStore implements ObjectStore {
     : _client = client ?? http.Client(),
       _ownsClient = client == null;
 
-  static const _requestTimeout = Duration(seconds: 15);
+  static const _requestTimeout = Duration(seconds: 45);
 
   final WebDavBackupConfig config;
   final http.Client _client;
@@ -265,28 +265,85 @@ class WebDavObjectStore implements ObjectStore {
     for (final segment in segments.take(segments.length - 1)) {
       currentPath = '$currentPath/$segment';
       final dirUri = baseUri.replace(path: currentPath);
+      // 坚果云等对已存在目录再 MKCOL 可能很慢或异常；先探测再创建。
+      if (await _collectionExists(dirUri)) {
+        continue;
+      }
       await _mkcol(dirUri);
     }
   }
 
+  Future<bool> _collectionExists(Uri dirUri) async {
+    try {
+      final propfind = await _guardRequest(
+        () async {
+          final request = http.Request('PROPFIND', dirUri)
+            ..headers.addAll({
+              ..._headers(),
+              'Depth': '0',
+              'Content-Type': 'application/xml',
+            })
+            ..body =
+                '<?xml version="1.0" encoding="utf-8"?>'
+                '<d:propfind xmlns:d="DAV:">'
+                '<d:prop><d:resourcetype/></d:prop>'
+                '</d:propfind>';
+          final streamed = await _client.send(request);
+          return http.Response.fromStream(streamed);
+        },
+        errorPrefix: 'WebDAV 检查目录失败',
+      );
+      if (propfind.statusCode == 207 ||
+          (propfind.statusCode >= 200 && propfind.statusCode < 300)) {
+        return true;
+      }
+      if (propfind.statusCode == 404) {
+        return false;
+      }
+    } on CloudSyncException {
+      // 探测失败时回退 MKCOL
+    }
+
+    try {
+      final get = await _guardRequest(
+        () => _client.get(dirUri, headers: _headers()),
+        errorPrefix: 'WebDAV 检查目录失败',
+      );
+      return get.statusCode >= 200 && get.statusCode < 300;
+    } on CloudSyncException {
+      return false;
+    }
+  }
+
   Future<void> _mkcol(Uri dirUri) async {
-    final response = await _guardRequest(
-      () async {
-        final request = http.Request('MKCOL', dirUri)
-          ..headers.addAll(_headers());
-        final streamed = await _client.send(request);
-        return http.Response.fromStream(streamed);
-      },
-      errorPrefix: '创建 WebDAV 目录失败',
-    );
+    late final http.Response response;
+    try {
+      response = await _guardRequest(
+        () async {
+          final request = http.Request('MKCOL', dirUri)
+            ..headers.addAll(_headers());
+          final streamed = await _client.send(request);
+          return http.Response.fromStream(streamed);
+        },
+        errorPrefix: '创建 WebDAV 目录失败',
+      );
+    } on CloudSyncException {
+      // 超时或网络抖动：若目录实际已存在则视为成功（恢复/加锁常见）。
+      if (await _collectionExists(dirUri)) {
+        return;
+      }
+      rethrow;
+    }
     if (response.statusCode == 201 ||
+        response.statusCode == 200 ||
         response.statusCode == 405 ||
         response.statusCode == 301 ||
-        response.statusCode == 302) {
+        response.statusCode == 302 ||
+        response.statusCode == 409) {
       return;
     }
-    // 已存在时部分服务返回 405 / 409。
-    if (response.statusCode == 409) {
+    // 已存在时部分服务仍返回其它状态码；再确认一次。
+    if (await _collectionExists(dirUri)) {
       return;
     }
     _ensureSuccess(response, defaultMessage: '创建 WebDAV 目录失败');
