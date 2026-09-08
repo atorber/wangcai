@@ -34,6 +34,18 @@ class _BillListScreenState extends State<BillListScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pullIfRemoteNewer());
+  }
+
+  Future<void> _pullIfRemoteNewer() async {
+    if (!mounted) {
+      return;
+    }
+    try {
+      await CloudLedgerBridge.ensureFresh(context);
+    } on CloudSyncException {
+      // 读路径失败不打断列表；写时再提示
+    }
   }
 
   @override

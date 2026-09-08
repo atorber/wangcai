@@ -9,7 +9,7 @@ import 'package:provider/provider.dart';
 import 'package:wangcai_core/wangcai_core.dart';
 
 /// 将 Provider 快照与 [Ledger]/[SyncClient] 打通。
-/// 已配置云同步时：加锁 → 拉远端 → 变更 → 推送 → 回写 Provider。
+/// 已配置云同步时：加锁 → 按 revision 对齐底稿 → 变更 → 推送 → 回写 Provider。
 /// 未配置时：仅本地变更并更新 local revision。
 class CloudLedgerBridge {
   const CloudLedgerBridge._();
@@ -66,7 +66,8 @@ class CloudLedgerBridge {
     return result;
   }
 
-  /// 读前若云端更新则拉齐并覆盖本地 Provider。
+  /// 远端 revision 更大时拉齐并覆盖本地 Provider；本地已新或相等则不动。
+  /// 返回是否用远端覆盖了本地。
   static Future<bool> ensureFresh(BuildContext context) async {
     final accountProvider = context.read<AccountProvider>();
     final categoryProvider = context.read<CategoryProvider>();

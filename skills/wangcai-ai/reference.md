@@ -43,9 +43,12 @@
 ## 同步与锁
 
 - 账本为整文件 JSON，含 `revision`（单调递增）
+- **读**：`remote > local` 时用远端覆盖本地；否则保持本地
+- **写**：`remote > local` 先拉远端再改；`remote <= local` 保留本地再改并上传（更新云端）
+- **push**：远端更新且无 `--force` → `CONFLICT`
+- **pull**：远端整包覆盖本地
 - 锁文件：账本路径 + `.lock`
-- 写路径：加锁 → 拉远端 → 变更 → `revision++` → 推送 → 释锁
-- `push --force`：强制覆盖远端更新版本（慎用）
+- `status.alignment`：`in_sync` | `pulled_remote` | `local_ahead` | `no_remote`
 
 ## 账户类型 `type`
 

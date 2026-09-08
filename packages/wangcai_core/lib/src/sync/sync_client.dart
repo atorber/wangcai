@@ -63,6 +63,7 @@ class SyncClient {
   }
 
   /// 若远端 revision 大于本地，则用远端覆盖 [local] 并返回同一实例。
+  /// 本地更新或相等时保持本地不变（不把较旧远端盖过来）。
   Future<Ledger> ensureFresh(Ledger local) async {
     final remote = await downloadBundle();
     if (remote != null && remote.revision > local.revision) {
@@ -71,7 +72,11 @@ class SyncClient {
     return local;
   }
 
-  /// 持锁写事务：远端优先作为 mutate 前的真相源，再执行 [action]、bump、上传。
+  /// 持锁写事务：按 revision 选底稿，再执行 [action]、bump、上传。
+  ///
+  /// - 远端更新：先用远端覆盖本地，再改、再推（更新本地）
+  /// - 本地更新或相等：保留本地底稿再改、再推（更新云端）
+  /// - 无远端：以本地新建上传
   Future<T> writeTransaction<T>(
     Ledger local,
     Future<T> Function(Ledger ledger) action,
@@ -79,7 +84,7 @@ class SyncClient {
     await _acquireLock();
     try {
       final remote = await downloadBundle();
-      if (remote != null) {
+      if (remote != null && remote.revision > local.revision) {
         local.replaceAll(remote);
       }
       final result = await action(local);

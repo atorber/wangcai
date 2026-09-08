@@ -15,8 +15,30 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
 import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 
-class AssetOverviewScreen extends StatelessWidget {
+class AssetOverviewScreen extends StatefulWidget {
   const AssetOverviewScreen({super.key});
+
+  @override
+  State<AssetOverviewScreen> createState() => _AssetOverviewScreenState();
+}
+
+class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pullIfRemoteNewer());
+  }
+
+  Future<void> _pullIfRemoteNewer() async {
+    if (!mounted) {
+      return;
+    }
+    try {
+      await CloudLedgerBridge.ensureFresh(context);
+    } on CloudSyncException {
+      // 读路径失败不打断首页
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

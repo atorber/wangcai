@@ -33,11 +33,31 @@
 ## 多端同步（WebDAV / S3）
 
 - 账本为整文件 JSON（`LedgerBundle`），含单调递增 `revision`
-- 写入前加锁：远端同路径 `.lock` 租约文件；冲突返回 `LOCK_BUSY`
-- App 日常记账在已配置云同步时经 `CloudLedgerBridge` 写穿同一套 `SyncClient`
-- CLI / Skill 使用相同协议，可与手机 App 共用一份远端账本
+- **读**：仅当 `remote.revision > local` 时用远端覆盖本地；本地已新则保持本地
+- **写**：加锁后按 revision 选底稿——远端更新则先拉齐再改；本地更新或相等则保留本地再改并上传（更新云端）
+- **手动推送**：远端更新且未确认/`--force` 时返回 `CONFLICT`
+- **手动拉取**：远端整包覆盖本地
+- 写入前加锁：远端同路径 `.lock` 租约；冲突返回 `LOCK_BUSY`
+- WebDAV `putIfAbsent` 先探测存在性（兼容坚果云忽略 `If-None-Match`）
+- App 首页 / 账单 / 统计进入时会 `ensureFresh`；日常记账经 `CloudLedgerBridge` 写穿
+- CLI / Skill 与 App 共用同一套协议与远端账本
 
-配置示例见 `packages/wangcai_cli/config.example.webdav.json`、`config.example.s3.json`（Skill 目录内亦有副本）。
+### 坚果云 WebDAV 示例
+
+`~/.wangcai/config.json`（权限建议 `chmod 600`，勿提交到 Git）：
+
+```json
+{
+  "protocol": "webdav",
+  "deviceId": "wc_cli_mac",
+  "serverUrl": "https://dav.jianguoyun.com/dav",
+  "username": "你的邮箱",
+  "password": "应用密码",
+  "remotePath": "/wangcai/records.json"
+}
+```
+
+密码请使用坚果云「安全选项」里生成的**应用密码**，不要使用登录密码。更多示例见 `packages/wangcai_cli/config.example.*.json` 与 `skills/wangcai-ai/config.example.*.json`。
 
 ## CLI 与 AI Skill
 
@@ -59,15 +79,36 @@ cd packages/wangcai_cli
 
 ### 使用 Skill（独立安装）
 
-将 `skills/wangcai-ai/` 整体拷到 `~/.cursor/skills/wangcai-ai/`，配置 `~/.wangcai/config.json` 后：
+Skill **不依赖本仓库工作区**。将目录整体拷到个人 Skills 后即可在任意项目对话中使用：
 
 ```bash
-~/.cursor/skills/wangcai-ai/bin/wangcai status
-~/.cursor/skills/wangcai-ai/bin/wangcai tx add --amount 38.5 --account 支付宝 --category 餐饮
-~/.cursor/skills/wangcai-ai/bin/wangcai stats --period month
+mkdir -p ~/.cursor/skills
+cp -R skills/wangcai-ai ~/.cursor/skills/wangcai-ai
+chmod +x ~/.cursor/skills/wangcai-ai/bin/wangcai \
+         ~/.cursor/skills/wangcai-ai/bin/wangcai-macos-arm64
 ```
 
-命令 stdout 为 JSON：`{"ok":true,"data":...}`。说明见 `skills/wangcai-ai/SKILL.md`。
+配置好 `~/.wangcai/config.json` 后：
+
+```bash
+BIN=~/.cursor/skills/wangcai-ai/bin/wangcai
+# 或直接用仓库内：skills/wangcai-ai/bin/wangcai
+
+$BIN status
+$BIN pull
+$BIN accounts list
+$BIN tx list --limit 20
+$BIN tx add --amount 38.5 --account 支付宝 --category 餐饮 --note 午餐
+$BIN stats --period month
+```
+
+命令 stdout 为 JSON：`{"ok":true,"data":...}`；失败写 stderr（如 `LOCK_BUSY`）。说明见 `skills/wangcai-ai/SKILL.md`。
+
+### 快速自测
+
+1. **CLI 冒烟**：`$BIN status` → `$BIN pull` → `$BIN accounts list`
+2. **Skill 对话**：新开 Chat，说「用 wangcai-ai 查账本状态 / 记一笔…」，确认 Agent 调用的是 Skill 目录下的 `bin/wangcai`，而不是 `dart run` 或仓库源码
+3. **锁（可选）**：远端若存在未过期的 `.lock` 且 owner 非本机，写入应返回 `LOCK_BUSY`
 
 ---
 
@@ -108,9 +149,9 @@ cd packages/wangcai_cli
     *   **云备份（WebDAV / S3）**:
         1. 在设置中点击 **“云备份 (WebDAV / S3)”**。
         2. 选择协议：`WebDAV` 或 `S3`（兼容 MinIO / R2 / OSS 等）。
-        3. WebDAV：填写服务地址、用户名、密码与远端路径（例如 `/wangcai/records.json`）。
+        3. WebDAV：填写服务地址、用户名、密码与远端路径（例如坚果云 `https://dav.jianguoyun.com/dav` + `/wangcai/records.json`）。
         4. S3：填写 Endpoint、Region、Bucket、Object Key、Access Key / Secret；自托管建议开启 Path-style。
-        5. 配置完成后可在状态页执行“立即备份”或“恢复覆盖本地”。
+        5. 配置完成后可在状态页执行「立即备份」或「恢复覆盖本地」；日常记账在已配置时会自动加锁写穿云端。
 
 ---
 
@@ -167,10 +208,10 @@ CLI 多平台二进制可使用 `Build Wangcai CLI` 工作流（macos-arm64 + wi
 - **记账闭环已打通**：覆盖支出、收入、转账、借出、借入等主要交易类型。
 - **资产视图已成体系**：账户与总览维度查看资产、负债与净值。
 - **统计分析具备基础决策价值**：周 / 月 / 年维度分类占比、趋势与同比洞察。
-- **数据主权路线已落地**：本地优先 + WebDAV / S3；`revision` + 文件锁支持 App / CLI / Skill 共用远端账本。
+- **数据主权路线已落地**：本地优先 + WebDAV / S3；`revision` + 文件锁支持 App / CLI / Skill 共用远端账本（含坚果云等忽略条件 PUT 头的兼容）。
 - **开放调用面**：`wangcai_core` + 独立 CLI 二进制 + 可安装 Skill。
 
-下一阶段重点：稳定性、Windows CLI 产物常态化、冲突与体验打磨。
+下一阶段重点：Windows CLI 产物常态化、冲突体验与核心流程回归。
 
 ## 下一步迭代路线
 

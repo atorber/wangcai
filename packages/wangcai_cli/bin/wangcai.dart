@@ -226,21 +226,36 @@ ${parser.usage}
 ''';
 
 Future<void> _cmdStatus(CliRuntime runtime) async {
-  await runtime.ensureFreshRead();
-  final ledger = runtime.ledger;
+  await runtime.loadLocal();
+  final localBefore = runtime.ledger.revision;
+  final remoteRevision = await runtime.client.fetchRemoteRevision();
+  await runtime.client.ensureFresh(runtime.ledger);
+  await runtime.saveLocal();
+  final localRevision = runtime.ledger.revision;
+  final String alignment;
+  if (remoteRevision == null) {
+    alignment = 'no_remote';
+  } else if (remoteRevision > localBefore) {
+    alignment = 'pulled_remote';
+  } else if (localBefore > remoteRevision) {
+    alignment = 'local_ahead';
+  } else {
+    alignment = 'in_sync';
+  }
   _ok({
     'protocol': runtime.config.protocol.name,
     'ledgerPath': runtime.config.ledgerPath,
-    'localRevision': ledger.revision,
-    'remoteRevision': await runtime.client.fetchRemoteRevision(),
-    'totalAssets': ledger.totalAssets,
-    'totalLiabilities': ledger.totalLiabilities,
-    'netAssets': ledger.netAssets,
-    'accountCount': ledger.accounts.length,
-    'transactionCount': ledger.transactions.length,
-    'categoryCount': ledger.categories.length,
-    'budgetCount': ledger.budgets.length,
-    'recurringCount': ledger.recurringRules.length,
+    'localRevision': localRevision,
+    'remoteRevision': remoteRevision,
+    'alignment': alignment,
+    'totalAssets': runtime.ledger.totalAssets,
+    'totalLiabilities': runtime.ledger.totalLiabilities,
+    'netAssets': runtime.ledger.netAssets,
+    'accountCount': runtime.ledger.accounts.length,
+    'transactionCount': runtime.ledger.transactions.length,
+    'categoryCount': runtime.ledger.categories.length,
+    'budgetCount': runtime.ledger.budgets.length,
+    'recurringCount': runtime.ledger.recurringRules.length,
   });
 }
 

@@ -64,13 +64,16 @@
 **读（`ensureFresh`）**
 
 1. 读本地工作副本 revision  
-2. 下载远端账本（或仅比 revision）  
-3. 若 `remote.revision > local.revision` → 覆盖本地  
+2. 下载远端账本  
+3. 若 `remote.revision > local.revision` → **用远端覆盖本地**  
+4. 若本地更新或相等 → **保持本地**（不把较旧远端盖过来）
 
-**写（CLI 业务变更 `writeTransaction`）**
+**写（CLI / App 日常变更 `writeTransaction`）**
 
 1. `acquireLock`  
-2. 下载远端，覆盖本地（远端优先）  
+2. 下载远端并按 revision 选底稿：  
+   - `remote > local` → 用远端覆盖本地（先更新本地）  
+   - `remote <= local` 或无远端 → **保留本地**（随后上传即更新云端）  
 3. 执行业务 mutation  
 4. `revision++`，`exportedAt=now`  
 5. 上传账本  

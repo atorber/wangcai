@@ -8,8 +8,9 @@ import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/services/stats_service.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/widgets/privacy_amount_text.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:provider/provider.dart';
-
+import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
 class FinancialStatsScreen extends StatefulWidget {
   const FinancialStatsScreen({super.key});
 
@@ -28,6 +29,26 @@ class _FinancialStatsScreenState extends State<FinancialStatsScreen> {
     AppColors.secondary,
     AppColors.primary,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _pullIfRemoteNewer());
+  }
+
+  Future<void> _pullIfRemoteNewer() async {
+    if (!mounted) {
+      return;
+    }
+    try {
+      await CloudLedgerBridge.ensureFresh(context);
+      if (mounted) {
+        setState(() {});
+      }
+    } on CloudSyncException {
+      // 读路径失败不打断统计页
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
