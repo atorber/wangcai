@@ -135,6 +135,108 @@ class Ledger {
     version = bundle.version;
     deviceId = bundle.deviceId;
     exportedAt = bundle.exportedAt;
+    ensureOpeningBalances();
+    recomputeBalancesFromTransactions();
+  }
+
+  /// 旧账本缺 openingBalance 时：opening = 当前余额 − 流水净额。
+  void ensureOpeningBalances() {
+    for (var i = 0; i < _accounts.length; i++) {
+      final account = _accounts[i];
+      if (!account.openingBalanceNeedsMigration) {
+        continue;
+      }
+      final net = netEffectOnAccount(account.id);
+      _accounts[i] = account.copyWith(
+        openingBalance: account.balance - net,
+        openingBalanceNeedsMigration: false,
+      );
+    }
+    for (var i = 0; i < _lenders.length; i++) {
+      final lender = _lenders[i];
+      if (!lender.openingBalanceNeedsMigration) {
+        continue;
+      }
+      final net = netEffectOnLender(lender.id);
+      _lenders[i] = lender.copyWith(
+        openingBalance: lender.balance - net,
+        openingBalanceNeedsMigration: false,
+      );
+    }
+  }
+
+  /// 当前余额 = openingBalance + 全部账单净影响。
+  void recomputeBalancesFromTransactions() {
+    for (var i = 0; i < _accounts.length; i++) {
+      final account = _accounts[i];
+      final net = netEffectOnAccount(account.id);
+      _accounts[i] = account.copyWith(
+        balance: account.openingBalance + net,
+        openingBalanceNeedsMigration: false,
+      );
+    }
+    for (var i = 0; i < _lenders.length; i++) {
+      final lender = _lenders[i];
+      final net = netEffectOnLender(lender.id);
+      _lenders[i] = lender.copyWith(
+        balance: lender.openingBalance + net,
+        openingBalanceNeedsMigration: false,
+      );
+    }
+  }
+
+  double netEffectOnAccount(String accountId) {
+    var net = 0.0;
+    for (final record in _transactions) {
+      net += _accountDeltaForRecord(record, accountId);
+    }
+    return net;
+  }
+
+  double netEffectOnLender(String lenderId) {
+    var net = 0.0;
+    for (final record in _transactions) {
+      net += _lenderDeltaForRecord(record, lenderId);
+    }
+    return net;
+  }
+
+  double _accountDeltaForRecord(TransactionRecord record, String accountId) {
+    switch (record.type) {
+      case TransactionType.expense:
+        return record.accountId == accountId ? -record.amount : 0;
+      case TransactionType.income:
+        return record.accountId == accountId ? record.amount : 0;
+      case TransactionType.transfer:
+        var delta = 0.0;
+        if (record.accountId == accountId) {
+          delta -= record.amount;
+        }
+        if (record.transferAccountId == accountId) {
+          delta += record.amount;
+        }
+        return delta;
+      case TransactionType.lend:
+        return record.accountId == accountId ? -record.amount : 0;
+      case TransactionType.borrow:
+        return record.accountId == accountId ? record.amount : 0;
+    }
+  }
+
+  double _lenderDeltaForRecord(TransactionRecord record, String lenderId) {
+    if (record.lenderId != lenderId) {
+      return 0;
+    }
+    switch (record.type) {
+      case TransactionType.lend:
+        return record.amount;
+      case TransactionType.borrow:
+        return -record.amount;
+      case TransactionType.expense:
+      case TransactionType.income:
+      case TransactionType.transfer:
+        return 0;
+    }
   }
 
   void bumpRevision({String? deviceId, DateTime? now}) {
@@ -439,6 +541,8 @@ class Ledger {
       name: name.trim(),
       type: type,
       balance: balance,
+      openingBalance: balance,
+      openingBalanceNeedsMigration: false,
       creditLimit: type == AccountType.creditCard ? creditLimit : null,
       billingDay: type == AccountType.creditCard ? billingDay : null,
       paymentDay: type == AccountType.creditCard ? paymentDay : null,
@@ -466,19 +570,17 @@ class Ledger {
     }
     final current = _accounts[index];
     final previousBalance = current.balance;
-    final updated = current.copyWith(
-      name: name,
-      balance: recordBalanceDifference ? previousBalance : balance,
-      creditLimit: current.isCreditCard ? creditLimit : null,
-      billingDay: current.isCreditCard ? billingDay : null,
-      paymentDay: current.isCreditCard ? paymentDay : null,
-      clearCreditLimit: !current.isCreditCard || creditLimit == null,
-      clearBillingDay: !current.isCreditCard || billingDay == null,
-      clearPaymentDay: !current.isCreditCard || paymentDay == null,
-    );
-    _accounts[index] = updated;
-
     if (recordBalanceDifference) {
+      final updated = current.copyWith(
+        name: name,
+        creditLimit: current.isCreditCard ? creditLimit : null,
+        billingDay: current.isCreditCard ? billingDay : null,
+        paymentDay: current.isCreditCard ? paymentDay : null,
+        clearCreditLimit: !current.isCreditCard || creditLimit == null,
+        clearBillingDay: !current.isCreditCard || billingDay == null,
+        clearPaymentDay: !current.isCreditCard || paymentDay == null,
+      );
+      _accounts[index] = updated;
       final delta = balance - previousBalance;
       if (delta != 0) {
         createTransaction(
@@ -491,6 +593,20 @@ class Ledger {
           client: client,
         );
       }
+    } else {
+      final balanceDelta = balance - previousBalance;
+      _accounts[index] = current.copyWith(
+        name: name,
+        balance: balance,
+        openingBalance: current.openingBalance + balanceDelta,
+        openingBalanceNeedsMigration: false,
+        creditLimit: current.isCreditCard ? creditLimit : null,
+        billingDay: current.isCreditCard ? billingDay : null,
+        paymentDay: current.isCreditCard ? paymentDay : null,
+        clearCreditLimit: !current.isCreditCard || creditLimit == null,
+        clearBillingDay: !current.isCreditCard || billingDay == null,
+        clearPaymentDay: !current.isCreditCard || paymentDay == null,
+      );
     }
     return findAccount(id)!;
   }
@@ -515,7 +631,13 @@ class Ledger {
         throw const LedgerException('CONFLICT', '应收/应付已存在');
       }
     }
-    final lender = Lender(id: _newId(), name: trimmed);
+    final lender = Lender(
+      id: _newId(),
+      name: trimmed,
+      balance: 0,
+      openingBalance: 0,
+      openingBalanceNeedsMigration: false,
+    );
     _lenders.add(lender);
     return lender;
   }
@@ -529,9 +651,14 @@ class Ledger {
     if (index == -1) {
       throw const LedgerException('NOT_FOUND', '应收/应付不存在');
     }
-    final updated = _lenders[index].copyWith(
-      name: name.trim().isEmpty ? _lenders[index].name : name.trim(),
+    final current = _lenders[index];
+    final previousBalance = current.balance;
+    final balanceDelta = balance - previousBalance;
+    final updated = current.copyWith(
+      name: name.trim().isEmpty ? current.name : name.trim(),
       balance: balance,
+      openingBalance: current.openingBalance + balanceDelta,
+      openingBalanceNeedsMigration: false,
     );
     _lenders[index] = updated;
     return updated;

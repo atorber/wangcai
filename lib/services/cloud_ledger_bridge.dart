@@ -104,11 +104,12 @@ class CloudLedgerBridge {
     required RecurringProvider recurringProvider,
     required LedgerBundle bundle,
   }) async {
-    await accountProvider.replaceAll(bundle.accounts);
-    await accountProvider.replaceLenders(bundle.lenders);
-    await categoryProvider.replaceAll(bundle.categories);
-    await transactionProvider.replaceAll(bundle.transactions);
-    await budgetProvider.replaceAll(bundle.budgets);
-    await recurringProvider.replaceAll(bundle.recurringRules);
+    final normalized = Ledger(bundle).toBundle();
+    await accountProvider.replaceAll(normalized.accounts);
+    await accountProvider.replaceLenders(normalized.lenders);
+    await categoryProvider.replaceAll(normalized.categories);
+    await transactionProvider.replaceAll(normalized.transactions);
+    await budgetProvider.replaceAll(normalized.budgets);
+    await recurringProvider.replaceAll(normalized.recurringRules);
   }
 }

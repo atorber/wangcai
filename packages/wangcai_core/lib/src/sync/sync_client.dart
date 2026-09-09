@@ -197,7 +197,8 @@ class SyncClient {
         return local.toBundle();
       }
       local.replaceAll(remote);
-      return remote;
+      // replaceAll 会 ensureOpening + 按流水重算余额，须返回本地快照而非原始 remote。
+      return local.toBundle();
     } finally {
       if (locked) {
         await _releaseLock();

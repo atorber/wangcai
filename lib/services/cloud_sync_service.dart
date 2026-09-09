@@ -248,6 +248,9 @@ class CloudSyncService {
         schemaVersion: LedgerBundle.currentSchemaVersion,
       ),
     );
+    // 构造 Ledger 时 replaceAll 已重算；上传前再确保自洽（显式调用便于语义清晰）。
+    ledger.ensureOpeningBalances();
+    ledger.recomputeBalancesFromTransactions();
     final uploaded = await client.pushLocal(ledger, force: force);
     await setLocalRevision(uploaded.revision);
     await markSyncNow();
@@ -286,10 +289,11 @@ class CloudSyncService {
     if (remote == null) {
       return null;
     }
-    if (remote.revision >= remoteRevision) {
-      return remote;
-    }
-    return remote.copyWith(revision: remoteRevision);
+    final withRevision = remote.revision >= remoteRevision
+        ? remote
+        : remote.copyWith(revision: remoteRevision);
+    // 与 pullReplace / Ledger.replaceAll 一致：补齐期初并按流水重算余额。
+    return Ledger(withRevision).toBundle();
   }
 }
 

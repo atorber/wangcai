@@ -55,16 +55,25 @@ class Account {
     required this.name,
     required this.type,
     required this.balance,
+    double? openingBalance,
+    this.openingBalanceNeedsMigration = false,
     this.subtitle = '',
     this.creditLimit,
     this.billingDay,
     this.paymentDay,
-  });
+  }) : openingBalance = openingBalance ?? balance;
 
   final String id;
   final String name;
   final AccountType type;
   final double balance;
+
+  /// 期初余额（不含流水）。当前余额 = openingBalance + 流水净额。
+  final double openingBalance;
+
+  /// JSON 缺 openingBalance 时为 true，由 Ledger.ensureOpeningBalances 推导。
+  final bool openingBalanceNeedsMigration;
+
   final String subtitle;
   final double? creditLimit;
   final int? billingDay;
@@ -113,6 +122,8 @@ class Account {
     String? name,
     AccountType? type,
     double? balance,
+    double? openingBalance,
+    bool? openingBalanceNeedsMigration,
     String? subtitle,
     double? creditLimit,
     int? billingDay,
@@ -126,6 +137,9 @@ class Account {
       name: name ?? this.name,
       type: type ?? this.type,
       balance: balance ?? this.balance,
+      openingBalance: openingBalance ?? this.openingBalance,
+      openingBalanceNeedsMigration:
+          openingBalanceNeedsMigration ?? this.openingBalanceNeedsMigration,
       subtitle: subtitle ?? this.subtitle,
       creditLimit: clearCreditLimit ? null : (creditLimit ?? this.creditLimit),
       billingDay: clearBillingDay ? null : (billingDay ?? this.billingDay),
@@ -139,6 +153,7 @@ class Account {
       'name': name,
       'type': type.name,
       'balance': balance,
+      'openingBalance': openingBalance,
       'subtitle': subtitle,
       if (creditLimit != null) 'creditLimit': creditLimit,
       if (billingDay != null) 'billingDay': billingDay,
@@ -147,11 +162,17 @@ class Account {
   }
 
   factory Account.fromJson(Map<String, dynamic> json) {
+    final balance = (json['balance'] as num?)?.toDouble() ?? 0;
+    final hasOpening = json.containsKey('openingBalance');
     return Account(
       id: json['id'] as String? ?? '${DateTime.now().microsecondsSinceEpoch}',
       name: json['name'] as String? ?? '未命名账户',
       type: accountTypeFromName(json['type'] as String? ?? 'debitCard'),
-      balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      balance: balance,
+      openingBalance: hasOpening
+          ? (json['openingBalance'] as num?)?.toDouble() ?? balance
+          : balance,
+      openingBalanceNeedsMigration: !hasOpening,
       subtitle: json['subtitle'] as String? ?? '',
       creditLimit: (json['creditLimit'] as num?)?.toDouble(),
       billingDay: (json['billingDay'] as num?)?.toInt(),

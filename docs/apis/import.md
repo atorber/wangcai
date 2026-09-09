@@ -212,7 +212,7 @@ CSV **不是** 恢复格式；恢复只认 JSON bundle。
 3. `categories.replaceAll`
 4. `transactions.replaceAll`
 
-**不重算余额。** 以 bundle 内账户/借贷人余额为准。
+整包载入（`Ledger.replaceAll` / 云恢复 / `pullReplace`）后：先补齐缺失的 `openingBalance`，再按 `balance = openingBalance + 流水净额` 重算账户与借贷人余额。日常记账仍走增量 delta，不每次全量重放。
 
 schemaVersion 2 时追加 `budgets.replaceAll`、`recurring.replaceAll`。
 

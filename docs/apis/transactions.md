@@ -252,7 +252,7 @@ App 账单页筛选 Chip：`全部` / `支出` / `收入` / `转账` / `借贷`�
 
 ## `transactions.replaceAll`
 
-整包覆盖，用于 JSON 导入 / WebDAV 恢复。**不按流水重算余额**——账户余额以 bundle 内 `accounts` 为准。
+整包覆盖，用于 JSON 导入 / WebDAV 恢复。经 `Ledger.replaceAll` 时按 `openingBalance + 流水净额` 重算 `accounts` / `lenders` 的 `balance`。
 
 ### 请求
 

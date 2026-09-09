@@ -77,7 +77,8 @@
 | `id` | string | 是 | 账户主键 |
 | `name` | string | 是 | 显示名 |
 | `type` | AccountType | 是 | 见枚举 |
-| `balance` | number | 是 | 当前余额。信用卡欠款为 **负数** |
+| `balance` | number | 是 | 当前余额。信用卡欠款为 **负数**。整包载入后按 `openingBalance + 流水净额` 重算 |
+| `openingBalance` | number | 否 | 期初余额（不含流水）。缺省时首次载入推导为 `balance − 流水净额`，下次写出落盘 |
 | `subtitle` | string | 否 | 默认 `""` |
 | `creditLimit` | number \| null | 否 | 仅信用卡有意义 |
 | `billingDay` | int \| null | 否 | 账单日 1–28 |
@@ -108,7 +109,8 @@
 {
   "id": "1710000000000000",
   "name": "张三",
-  "balance": 200.0
+  "balance": 200.0,
+  "openingBalance": 0.0
 }
 ```
 
@@ -116,7 +118,8 @@
 |------|------|------|
 | `id` | string | 主键 |
 | `name` | string | 名称，创建时按精确匹配去重 |
-| `balance` | number | 正数表示对方欠我（借出累计），负数表示我欠对方（借入累计） |
+| `balance` | number | 正数表示对方欠我（借出累计），负数表示我欠对方（借入累计）。整包载入后按 `openingBalance + 流水净额` 重算 |
+| `openingBalance` | number | 期初余额（不含流水）。缺省时首次载入推导并落盘 |
 
 ## TransactionRecord
 

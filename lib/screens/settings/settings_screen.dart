@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:finance_app/models/app_backup_bundle.dart';
 import 'package:finance_app/providers/app_settings_provider.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/budget_provider.dart';
@@ -19,6 +18,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:finance_app/screens/settings/cloud_backup_setup_screen.dart';
 import 'package:finance_app/providers/recurring_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -606,12 +606,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      await accountProvider.replaceAll(bundle.accounts);
-      await accountProvider.replaceLenders(bundle.lenders);
-      await categoryProvider.replaceAll(bundle.categories);
-      await transactionProvider.replaceAll(bundle.transactions);
-      await budgetProvider.replaceAll(bundle.budgets);
-      await recurringProvider.replaceAll(bundle.recurringRules);
+      final normalized = Ledger(bundle).toBundle();
+      await accountProvider.replaceAll(normalized.accounts);
+      await accountProvider.replaceLenders(normalized.lenders);
+      await categoryProvider.replaceAll(normalized.categories);
+      await transactionProvider.replaceAll(normalized.transactions);
+      await budgetProvider.replaceAll(normalized.budgets);
+      await recurringProvider.replaceAll(normalized.recurringRules);
 
       if (mounted) {
         ScaffoldMessenger.of(
