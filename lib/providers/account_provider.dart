@@ -196,6 +196,23 @@ class AccountProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 无关联账单时可删除。有关联账单返回 `false`。
+  bool removeLender(
+    String id, {
+    Iterable<TransactionRecord> relatedTransactions = const [],
+  }) {
+    final hasLinkedTransaction = relatedTransactions.any(
+      (item) => item.lenderId == id,
+    );
+    if (hasLinkedTransaction) {
+      return false;
+    }
+    _lenders.removeWhere((item) => item.id == id);
+    _persistLendersToLocal();
+    notifyListeners();
+    return true;
+  }
+
   Future<void> applyTransaction(TransactionRecord record) async {
     _applyTransactionDelta(record, isRevert: false);
     await _persistAccountsToLocal();

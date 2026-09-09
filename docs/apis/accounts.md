@@ -229,7 +229,9 @@ App 允许直接改余额（不强制补记流水）。技能若从聊天改余�
 
 ## `lenders.delete`
 
-App **当前没有删除借贷人入口**。技能若实现删除，约束应对齐账户：存在 `lenderId` 引用的账单则 `CONSTRAINT`。
+删除应收/应付对方。存在 `lenderId` 引用的账单时返回 `CONSTRAINT`。
+
+App 入口：首页应收/应付卡片左滑「删除」，或详情页右上角删除；经 `CloudLedgerBridge` 写穿云端。CLI：`wangcai lenders delete --lender <id|名称>`。
 
 ```json
 { "method": "lenders.delete", "params": { "id": "1710..." } }

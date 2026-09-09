@@ -13,7 +13,8 @@ import 'package:finance_app/screens/accounts/add_account_screen.dart'
     as finance_add_account;
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:provider/provider.dart';
-import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
+import 'package:wangcai_core/wangcai_core.dart'
+    show CloudSyncException, LedgerException;
 
 class AssetOverviewScreen extends StatefulWidget {
   const AssetOverviewScreen({super.key});
@@ -432,7 +433,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
       key: ValueKey('lender-${lender.id}'),
       endActionPane: ActionPane(
         motion: const ScrollMotion(),
-        extentRatio: 0.24,
+        extentRatio: 0.48,
         children: [
           SlidableAction(
             onPressed: (_) => _showEditLenderDialog(context, lender),
@@ -440,6 +441,14 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
             foregroundColor: Colors.white,
             icon: Icons.edit_outlined,
             label: '编辑',
+            borderRadius: BorderRadius.circular(12),
+          ),
+          SlidableAction(
+            onPressed: (_) => _showDeleteLenderDialog(context, lender),
+            backgroundColor: AppColors.error,
+            foregroundColor: Colors.white,
+            icon: Icons.delete_outline,
+            label: '删除',
             borderRadius: BorderRadius.circular(12),
           ),
         ],
@@ -716,6 +725,71 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
           context,
         ).showSnackBar(const SnackBar(content: Text('该账户已有关联账单，无法删除')));
       }
+    }
+  }
+
+  Future<void> _showDeleteLenderDialog(
+    BuildContext context,
+    Lender lender,
+  ) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除应收/应付'),
+        content: Text('确认删除「${lender.name}」吗？有关联账单时无法删除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete != true || !context.mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await CloudLedgerBridge.mutate(
+        context,
+        action: (ledger) async {
+          ledger.deleteLender(lender.id);
+        },
+      );
+    } on LedgerException catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'CONSTRAINT' ? '该应收/应付已有关联账单，无法删除' : e.message,
+          ),
+        ),
+      );
+      return;
+    } on CloudSyncException catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '删除失败：$e',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (context.mounted) {
+      messenger.showSnackBar(const SnackBar(content: Text('应收/应付已删除')));
     }
   }
 

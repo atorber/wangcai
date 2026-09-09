@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:finance_app/models/lender.dart';
 import 'package:finance_app/models/transaction_record.dart';
+import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
+import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/widgets/privacy_amount_text.dart';
 import 'package:provider/provider.dart';
+import 'package:wangcai_core/wangcai_core.dart'
+    show CloudSyncException, LedgerException;
 
 class LenderDetailScreen extends StatelessWidget {
   const LenderDetailScreen({super.key, required this.lender});
@@ -13,33 +17,58 @@ class LenderDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withValues(
-          alpha: 0.9,
-        ),
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          '应收/应付详情',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
+    return Consumer2<AccountProvider, TransactionProvider>(
+      builder: (context, accountProvider, transactionProvider, _) {
+        Lender? current;
+        for (final item in accountProvider.lenders) {
+          if (item.id == lender.id) {
+            current = item;
+            break;
+          }
+        }
+        if (current == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted && Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+          });
+          return const Scaffold(body: SizedBox.shrink());
+        }
+        final resolved = current;
+
+        final related = transactionProvider.transactions
+            .where((item) => item.lenderId == resolved.id)
+            .toList(growable: false);
+
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.surfaceContainerLowest.withValues(
+              alpha: 0.9,
+            ),
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            title: Text(
+              '应收/应付详情',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            actions: [
+              IconButton(
+                tooltip: '删除',
+                onPressed: () => _confirmDelete(context, resolved),
+                icon: const Icon(Icons.delete_outline),
+              ),
+            ],
           ),
-        ),
-      ),
-      body: Consumer<TransactionProvider>(
-        builder: (context, transactionProvider, _) {
-          final related = transactionProvider.transactions
-              .where((item) => item.lenderId == lender.id)
-              .toList(growable: false);
-          return SingleChildScrollView(
+          body: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(context),
+                _buildHeader(context, resolved),
                 const SizedBox(height: 24),
                 _buildStatsSection(context, related),
                 const SizedBox(height: 24),
@@ -56,14 +85,80 @@ class LenderDetailScreen extends StatelessWidget {
                   ...related.map((record) => _buildRecordItem(context, record)),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    final isReceivable = lender.balance > 0;
+  Future<void> _confirmDelete(BuildContext context, Lender current) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除应收/应付'),
+        content: Text('确认删除「${current.name}」吗？有关联账单时无法删除。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    try {
+      await CloudLedgerBridge.mutate(
+        context,
+        action: (ledger) async {
+          ledger.deleteLender(current.id);
+        },
+      );
+    } on LedgerException catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'CONSTRAINT' ? '该应收/应付已有关联账单，无法删除' : e.message,
+          ),
+        ),
+      );
+      return;
+    } on CloudSyncException catch (e) {
+      if (!context.mounted) {
+        return;
+      }
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '删除失败：$e',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+    messenger.showSnackBar(const SnackBar(content: Text('应收/应付已删除')));
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
+  Widget _buildHeader(BuildContext context, Lender current) {
+    final isReceivable = current.balance > 0;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -82,7 +177,7 @@ class LenderDetailScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            lender.name,
+            current.name,
             style: Theme.of(
               context,
             ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
@@ -96,7 +191,7 @@ class LenderDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           PrivacyAmountText(
-            amount: lender.balance.abs(),
+            amount: current.balance.abs(),
             prefix: '¥ ',
             style: Theme.of(context).textTheme.displayLarge?.copyWith(
               color: isReceivable
