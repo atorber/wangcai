@@ -36,7 +36,7 @@
 - **读**：仅当 `remote.revision > local` 时用远端覆盖本地；本地已新则保持本地
 - **写**：加锁后按 revision 选底稿——远端更新则先拉齐再改；本地更新或相等则保留本地再改并上传（更新云端）
 - **手动推送**：远端更新且未确认/`--force` 时返回 `CONFLICT`
-- **手动拉取**：远端整包覆盖本地
+- **手动拉取 / 整包覆盖**：远端（或 JSON 导入）整包替换本地；载入时按 `openingBalance + 流水净额` 重算账户与应收/应付余额，避免备份里余额与账单不一致被原样固化。日常记账仍走增量 delta，不每次全量重放。
 - 写入前加锁：`lock.json` 租约；冲突返回 `LOCK_BUSY`
 - WebDAV `putIfAbsent` 先探测存在性（兼容坚果云忽略 `If-None-Match`）
 - App 首页 / 账单 / 统计进入时会 `ensureFresh`；日常记账经 `CloudLedgerBridge` 写穿
@@ -97,12 +97,13 @@ BIN=~/.cursor/skills/wangcai-ai/bin/wangcai
 $BIN status
 $BIN pull
 $BIN accounts list
+$BIN lenders list
 $BIN tx list --limit 20
 $BIN tx add --amount 38.5 --account 支付宝 --category 餐饮 --note 午餐
 $BIN stats --period month
 ```
 
-命令 stdout 为 JSON：`{"ok":true,"data":...}`；失败写 stderr（如 `LOCK_BUSY`）。说明见 `skills/wangcai-ai/SKILL.md`。
+命令 stdout 为 JSON：`{"ok":true,"data":...}`；失败写 stderr（如 `LOCK_BUSY`）。账单带 `client` 字段（`app` / `agent` / `import` / `recurring`）；CLI 默认 `agent`，可用 `--client` 覆盖。说明见 `skills/wangcai-ai/SKILL.md`。
 
 ### 快速自测
 
@@ -153,18 +154,19 @@ $BIN stats --period month
         4. S3：填写 Endpoint、Region、Bucket、对象目录前缀（如 `wangcai`）、Access Key / Secret；自托管建议开启 Path-style。
         5. 目录内文件由旺财自动生成（`records.json` / `revision.json` / `lock.json`），无需指定到文件。
         6. 配置完成后可在状态页执行「立即备份」或「恢复覆盖本地」；日常记账在已配置时会自动加锁写穿云端。
+        7. 「恢复覆盖本地」与 JSON 整包导入会按期初余额 + 流水重算余额，再写回本地。
 
 ---
 
 ## 功能特性
 
 1.  **资产概览**: 全面掌握财务状况。
-2.  **便捷记账**: 支出 / 收入 / 转账 / 借贷，支持云端写穿同步。
+2.  **便捷记账**: 支出 / 收入 / 转账 / 借贷，支持云端写穿同步；账单记录操作端（App / Agent / 导入 / 周期）。
 3.  **财务统计**: 周 / 月 / 年维度的支出分布、趋势与同比洞察。
-4.  **账户与分类 / 预算 / 周期账单**: 本地管理，可与远端账本一并同步。
+4.  **账户与分类 / 预算 / 周期账单**: 账户类型含现金、信用卡、储蓄卡/借记卡、网络账户、投资账户、储值卡；应收/应付为独立借贷人实体，可与远端账本一并同步。
 5.  **账单导入**: 支付宝 / 微信 CSV。
-6.  **云备份 (WebDAV / S3)**: 加锁同步，多端互斥写入。
-7.  **CLI + AI Skill**: 不依赖 App UI 亦可记账、查询与同步。
+6.  **云备份 (WebDAV / S3)**: 加锁同步，多端互斥写入；整包恢复按 `openingBalance + 流水净额` 对齐余额。
+7.  **CLI + AI Skill**: 不依赖 App UI 亦可记账、查询账户/借贷人与同步。
 
 ## 技术栈
 
@@ -202,20 +204,67 @@ $BIN stats --period month
 发布建议使用 GitHub Actions 的 `Create Release (Auto Bump Patch)` 工作流。  
 CLI 多平台二进制可使用 `Build Wangcai CLI` 工作流（macos-arm64 + windows-x64）。
 
-**版本号单一信源**：仓库根目录 [`VERSION`](VERSION)（格式如 `0.2.2+3`）。  
-请勿手改 `pubspec.yaml` 的 `version`；本地发版前执行 `./tool/sync_version.sh`，CI 会自动同步并用 `--build-name` / `--build-number` 注入构建。
+**版本号单一信源**：仓库根目录 [`VERSION`](VERSION)（当前如 `0.2.6+8`）。  
+请勿手改 `pubspec.yaml` 的 `version`；本地发版前执行 `./tool/sync_version.sh`，CI 会自动同步并用 `--build-name` / `--build-number` 注入构建。创建 Release 后需再跑 `Build And Upload Release Package`（或确认 `release: published` 已触发）以上传 APK / AAB。
+
+## 更新日志
+
+完整包体与对比链接见 [Releases](https://github.com/atorber/wangcai/releases)。以下为近期版本摘要：
+
+### [v0.2.6](https://github.com/atorber/wangcai/releases/tag/v0.2.6) — 2026-09-09
+
+- 账户 / 借贷人增加 `openingBalance`（期初余额）
+- 整包恢复、JSON 导入、云端拉齐后按 `openingBalance + 流水净额` 重算余额；上传备份前对齐，避免余额与账单不一致被固化
+- 日常记账仍走增量 delta，不每次全量重放
+
+### [v0.2.5](https://github.com/atorber/wangcai/releases/tag/v0.2.5) — 2026-09-09
+
+- 账单增加操作端标识 `client`（`app` / `agent` / `import` / `recurring`），CLI 默认 `agent`
+- 修复「记一笔」页在后台停留后日期时间戳过期的问题
+- 远端账本改为目录布局（`records.json` / `revision.json` / `lock.json`）；修复连续记账金额累加异常
+- CLI macOS 二进制纳入 `wangcai_cli` / Skill 发布流程
+
+### [v0.2.4](https://github.com/atorber/wangcai/releases/tag/v0.2.4) — 2026-09-08
+
+- 正式包 `AndroidManifest` 补上 `INTERNET` 权限，修复云备份网络不可用
+
+### [v0.2.3](https://github.com/atorber/wangcai/releases/tag/v0.2.3) — 2026-09-08
+
+- 恢复时跳过 WebDAV `MKCOL`；加锁失败可降级为无锁拉取，降低坚果云恢复失败率
+
+### [v0.2.2](https://github.com/atorber/wangcai/releases/tag/v0.2.2) — 2026-09-08
+
+- WebDAV 建目录先探测，避免坚果云 `MKCOL` 超时导致恢复失败
+- 根目录 `VERSION` 作为版本号单一信源；刷新应用内「关于」页
+
+### [v0.2.1](https://github.com/atorber/wangcai/releases/tag/v0.2.1) — 2026-09-08
+
+- 抽取 `wangcai_core` / CLI，落地加锁同步与可安装 AI Skill
+- 按 `revision` 双向对齐本地与云端；坚果云锁改为先探测再 `putIfAbsent`
+- 统一 WebDAV / S3 云备份入口
+
+### [v0.2.0](https://github.com/atorber/wangcai/releases/tag/v0.2.0) — 2026-04-26
+
+- 修复记一笔金额输入自动聚焦与键盘唤起
+- 修复统计页预算管理重复 key、隐私模式金额刷新
+- 优化账户详情与账单页展示与交互稳定性
+
+### 更早版本
+
+- [v0.1.x](https://github.com/atorber/wangcai/releases) — 初始可用原型与早期修复
 
 ## 项目阶段总结
 
-截至当前阶段，旺财已完成从“可用原型”到“可日常使用 + 多端同步”的核心能力建设：
+截至 **v0.2.6**，旺财已完成从“可用原型”到“可日常使用 + 多端同步”的核心能力建设：
 
-- **记账闭环已打通**：覆盖支出、收入、转账、借出、借入等主要交易类型。
-- **资产视图已成体系**：账户与总览维度查看资产、负债与净值。
+- **记账闭环已打通**：覆盖支出、收入、转账、借出、借入；账单可追溯操作端。
+- **资产视图已成体系**：账户与应收/应付总览资产、负债与净值。
 - **统计分析具备基础决策价值**：周 / 月 / 年维度分类占比、趋势与同比洞察。
 - **数据主权路线已落地**：本地优先 + WebDAV / S3；`revision` + 文件锁支持 App / CLI / Skill 共用远端账本（含坚果云等忽略条件 PUT 头的兼容）。
-- **开放调用面**：`wangcai_core` + 独立 CLI 二进制 + 可安装 Skill。
+- **余额自洽**：整包恢复 / 导入按期初余额 + 流水净额重算，上传前亦可对齐。
+- **开放调用面**：`wangcai_core` + 独立 CLI（含 macOS / Windows CI 产物）+ 可安装 Skill。
 
-下一阶段重点：Windows CLI 产物常态化、冲突体验与核心流程回归。
+下一阶段重点：冲突体验、备份可验证与核心流程回归。
 
 ## 下一步迭代路线
 
@@ -224,7 +273,6 @@ CLI 多平台二进制可使用 `Build Wangcai CLI` 工作流（macos-arm64 + wi
 1. **数据可靠性增强** — 关键写入重试、冲突与回滚策略完善。
 2. **备份可验证性** — 成功备份时间、校验与导出演练。
 3. **基础质量保障** — 记账 / 账户 / 统计 / 同步最小回归集。
-4. **CLI 多平台产物** — CI 产出 Windows 二进制并纳入 Skill `bin/`。
 
 ### P1（体验升级：效率与可读性）
 
