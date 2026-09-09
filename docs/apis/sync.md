@@ -2,21 +2,39 @@
 
 对应：`wangcai_core` 的 `SyncClient` + `ObjectStore`（App：`CloudSyncService`；CLI：`wangcai`）。
 
-同步模型：**整包覆盖** + **`revision` 单调版本** + **旁路锁文件租约**。远端一个对象 = 一份 `LedgerBundle`（兼容旧名 `AppBackupBundle`）。
+同步模型：**整包覆盖** + **独立 `revision.json` 版本** + **`lock.json` 租约**。用户只配置远端**目录**；目录布局由旺财固定生成。
 
 ---
 
-## 账本对象
+## 远端目录布局
+
+用户配置示例：WebDAV `/wangcai`，S3 前缀 `wangcai`。
+
+| 路径 | 用途 |
+|------|------|
+| `{folder}/records.json` | 账本整包（`LedgerBundle`） |
+| `{folder}/revision.json` | 独立数据版本（读对齐优先） |
+| `{folder}/lock.json` | 写入租约锁 |
+
+旧配置若仍写文件路径（如 `/wangcai/records.json`），会自动规范为父目录。旧锁 `{ledger}.lock` 不再使用。
 
 | 项 | 约定 |
 |----|------|
-| 路径 | 默认 `/wangcai/records.json`（WebDAV）或 `wangcai/records.json`（S3） |
-| 锁文件 | `{ledgerPath}.lock` |
 | Content-Type | `application/json` |
 | schemaVersion | `2`（含 `budgets`、`recurringRules`） |
-| revision | 每次成功推送 +1，多端对齐主字段 |
+| revision | 每次成功推送 +1；以 `revision.json` 为准，兼容整包内嵌字段 |
 
-### schemaVersion / revision
+### revision.json
+
+```json
+{
+  "revision": 12,
+  "deviceId": "wc_xxxx",
+  "updatedAt": "2026-09-08T12:33:00.000Z"
+}
+```
+
+### schemaVersion / revision（账本内）
 
 ```json
 {
@@ -64,19 +82,19 @@
 **读（`ensureFresh`）**
 
 1. 读本地工作副本 revision  
-2. 下载远端账本  
-3. 若 `remote.revision > local.revision` → **用远端覆盖本地**  
+2. 读远端 `revision.json`（若无则回退读账本内嵌 revision）  
+3. 若 `remote.revision > local.revision` → 下载 `records.json` **用远端覆盖本地**  
 4. 若本地更新或相等 → **保持本地**（不把较旧远端盖过来）
 
 **写（CLI / App 日常变更 `writeTransaction`）**
 
-1. `acquireLock`  
-2. 下载远端并按 revision 选底稿：  
+1. `acquireLock`（`lock.json`）  
+2. 按远端 revision 选底稿：  
    - `remote > local` → 用远端覆盖本地（先更新本地）  
    - `remote <= local` 或无远端 → **保留本地**（随后上传即更新云端）  
 3. 执行业务 mutation  
 4. `revision++`，`exportedAt=now`  
-5. 上传账本  
+5. 上传 `records.json` 与 `revision.json`  
 6. `releaseLock`  
 
 **写（App「立即备份」`pushLocal`）**

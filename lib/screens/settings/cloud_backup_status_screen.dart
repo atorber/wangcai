@@ -67,6 +67,10 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
                 ),
                 child: Column(
                   children: [
+                    if (!CloudSyncService.isSupportedOnCurrentPlatform) ...[
+                      _buildWebUnsupportedBanner(context),
+                      const SizedBox(height: 24),
+                    ],
                     const SizedBox(height: 48),
                     _buildStatusIndicator(context),
                     const SizedBox(height: 48),
@@ -134,13 +138,13 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
           const SizedBox(height: 16),
           _detailRow(
             context,
-            isS3 ? 'Bucket / Key' : '服务地址',
+            isS3 ? 'Bucket / 目录' : '服务地址',
             _config?.displayTarget ?? '--',
           ),
           const SizedBox(height: 16),
           _detailRow(
             context,
-            isS3 ? 'Endpoint' : '远端路径',
+            isS3 ? 'Endpoint' : '远端目录',
             _config?.displayPath ?? '--',
           ),
         ],
@@ -174,12 +178,33 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
     );
   }
 
+  Widget _buildWebUnsupportedBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        CloudSyncService.unsupportedPlatformMessage,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.error,
+              height: 1.45,
+            ),
+      ),
+    );
+  }
+
   Widget _buildActionButtons(BuildContext context) {
     final protocolLabel = _config?.protocolLabel ?? '云端';
+    final canSync =
+        !_syncing && CloudSyncService.isSupportedOnCurrentPlatform;
     return Column(
       children: [
         ElevatedButton(
-          onPressed: _syncing ? null : _uploadNow,
+          onPressed: canSync ? _uploadNow : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primaryContainer,
             foregroundColor: AppColors.onPrimary,
@@ -204,7 +229,7 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
         ),
         const SizedBox(height: 12),
         OutlinedButton(
-          onPressed: _syncing ? null : _downloadNow,
+          onPressed: canSync ? _downloadNow : null,
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
@@ -241,6 +266,10 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
   }
 
   Future<void> _uploadNow() async {
+    if (!CloudSyncService.isSupportedOnCurrentPlatform) {
+      _showMessage(CloudSyncService.unsupportedPlatformMessage);
+      return;
+    }
     if (_config == null) {
       _showMessage('请先在上一步保存云备份配置');
       return;
@@ -318,6 +347,10 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
   }
 
   Future<void> _downloadNow() async {
+    if (!CloudSyncService.isSupportedOnCurrentPlatform) {
+      _showMessage(CloudSyncService.unsupportedPlatformMessage);
+      return;
+    }
     if (_config == null) {
       _showMessage('请先在上一步保存云备份配置');
       return;
@@ -363,7 +396,7 @@ class _CloudBackupStatusScreenState extends State<CloudBackupStatusScreen> {
       _lastSyncAt = await CloudSyncService.getLastSyncAt();
       _showMessage(
         '恢复完成：${bundle.transactions.length} 条账单，${bundle.accounts.length} 个账户，'
-        '${bundle.lenders.length} 个借贷人，${bundle.categories.length} 个分类'
+        '${bundle.lenders.length} 个应收/应付，${bundle.categories.length} 个分类'
         '（revision ${bundle.revision}）',
       );
       setState(() {});

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:finance_app/models/account.dart';
 import 'package:finance_app/models/lender.dart';
-import 'package:finance_app/models/transaction_record.dart';
 import 'package:finance_app/screens/accounts/account_detail_screen.dart';
+import 'package:finance_app/screens/accounts/edit_account_dialog.dart';
 import 'package:finance_app/screens/accounts/lender_detail_screen.dart';
 import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
@@ -90,7 +90,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
               _buildAccountGrid(context, accountProvider.accounts),
               const SizedBox(height: 24),
               Text(
-                '借贷人',
+                '应收/应付',
                 style: Theme.of(
                   context,
                 ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
@@ -325,7 +325,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          '暂无借贷人',
+          '暂无应收/应付',
           style: Theme.of(
             context,
           ).textTheme.bodyMedium?.copyWith(color: AppColors.onSurfaceVariant),
@@ -663,24 +663,27 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
 
   (Color, Color) _colorForType(AccountType type) {
     switch (type) {
-      case AccountType.debitCard:
-        return (AppColors.primary, AppColors.primary.withValues(alpha: 0.1));
+      case AccountType.cash:
+        return (AppColors.onSurface, AppColors.surfaceVariant);
       case AccountType.creditCard:
         return (AppColors.tertiary, AppColors.tertiary.withValues(alpha: 0.1));
-      case AccountType.alipay:
+      case AccountType.debitCard:
+        return (AppColors.primary, AppColors.primary.withValues(alpha: 0.1));
+      case AccountType.onlineAccount:
         return (
           const Color(0xFF1677FF),
           const Color(0xFF1677FF).withValues(alpha: 0.1),
         );
-      case AccountType.wechatPay:
+      case AccountType.investment:
         return (
-          const Color(0xFF07C160),
-          const Color(0xFF07C160).withValues(alpha: 0.1),
+          const Color(0xFF7C3AED),
+          const Color(0xFF7C3AED).withValues(alpha: 0.1),
         );
-      case AccountType.cash:
-        return (AppColors.onSurface, AppColors.surfaceVariant);
-      case AccountType.other:
-        return (AppColors.secondary, AppColors.surfaceContainer);
+      case AccountType.storedValueCard:
+        return (
+          const Color(0xFFEA580C),
+          const Color(0xFFEA580C).withValues(alpha: 0.1),
+        );
     }
   }
 
@@ -720,181 +723,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
     BuildContext context,
     Account account,
   ) async {
-    var nameValue = account.name;
-    var balanceValue = account.balance.toStringAsFixed(2);
-    var creditLimitValue = account.creditLimit?.toStringAsFixed(2) ?? '';
-    var billingDay = account.billingDay ?? 1;
-    var paymentDay = account.paymentDay ?? 20;
-    bool shouldCreateAdjustment = false;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          title: const Text('编辑账户'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  initialValue: nameValue,
-                  onChanged: (value) => nameValue = value,
-                  autofocus: true,
-                  decoration: const InputDecoration(labelText: '账户名称'),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  initialValue: balanceValue,
-                  onChanged: (value) => balanceValue = value,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(labelText: '账户余额'),
-                ),
-                if (account.isCreditCard) ...[
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    initialValue: creditLimitValue,
-                    onChanged: (value) => creditLimitValue = value,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(labelText: '信用额度'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: billingDay,
-                    items: List.generate(
-                      28,
-                      (index) => DropdownMenuItem(
-                        value: index + 1,
-                        child: Text('账单日 ${index + 1}'),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() => billingDay = value);
-                      }
-                    },
-                    decoration: const InputDecoration(labelText: '账单日'),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<int>(
-                    initialValue: paymentDay,
-                    items: List.generate(
-                      28,
-                      (index) => DropdownMenuItem(
-                        value: index + 1,
-                        child: Text('还款日 ${index + 1}'),
-                      ),
-                    ),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setDialogState(() => paymentDay = value);
-                      }
-                    },
-                    decoration: const InputDecoration(labelText: '还款日'),
-                  ),
-                ],
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: shouldCreateAdjustment,
-                  onChanged: (value) {
-                    setDialogState(() {
-                      shouldCreateAdjustment = value ?? false;
-                    });
-                  },
-                  title: const Text('将差额补记为收支'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('保存'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) {
-      return;
-    }
-
-    final messenger = ScaffoldMessenger.of(context);
-    final name = nameValue.trim();
-    final balance = double.tryParse(balanceValue.trim());
-    final creditLimitText = creditLimitValue.trim();
-    final creditLimit = creditLimitText.isEmpty
-        ? null
-        : double.tryParse(creditLimitText);
-
-    if (name.isEmpty || balance == null) {
-      messenger.showSnackBar(const SnackBar(content: Text('请输入合法名称和余额')));
-      return;
-    }
-    if (account.isCreditCard &&
-        creditLimitText.isNotEmpty &&
-        creditLimit == null) {
-      messenger.showSnackBar(const SnackBar(content: Text('请输入合法信用额度')));
-      return;
-    }
-
-    final previousBalance = account.balance;
-
-    try {
-      await CloudLedgerBridge.mutate(
-        context,
-        action: (ledger) async {
-          ledger.updateAccount(
-            id: account.id,
-            name: name,
-            balance: shouldCreateAdjustment ? previousBalance : balance,
-            creditLimit: account.isCreditCard ? creditLimit : null,
-            billingDay: account.isCreditCard ? billingDay : null,
-            paymentDay: account.isCreditCard ? paymentDay : null,
-          );
-          if (shouldCreateAdjustment) {
-            final delta = balance - previousBalance;
-            if (delta != 0) {
-              final isIncome = delta > 0;
-              ledger.createTransaction(
-                type: isIncome
-                    ? TransactionType.income
-                    : TransactionType.expense,
-                amount: delta.abs(),
-                category: '余额调整',
-                accountId: account.id,
-                date: DateTime.now(),
-                note: '编辑账户余额补记',
-              );
-            }
-          }
-        },
-      );
-    } on CloudSyncException catch (e) {
-      if (!context.mounted) {
-        return;
-      }
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '更新失败：$e',
-          ),
-        ),
-      );
-      return;
-    }
-
-    if (context.mounted) {
-      messenger.showSnackBar(const SnackBar(content: Text('账户已更新')));
-    }
+    await showEditAccountDialog(context, account: account);
   }
 
   Future<void> _showEditLenderDialog(
@@ -906,7 +735,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('编辑借贷人'),
+        title: const Text('编辑应收/应付'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -915,7 +744,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
                 initialValue: nameValue,
                 onChanged: (value) => nameValue = value,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: '借贷人名称'),
+                decoration: const InputDecoration(labelText: '对方名称'),
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -951,7 +780,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
     final name = nameValue.trim();
 
     if (name.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text('请输入合法借贷人名称')));
+      messenger.showSnackBar(const SnackBar(content: Text('请输入合法对方名称')));
       return;
     }
 
@@ -961,7 +790,7 @@ class _AssetOverviewScreenState extends State<AssetOverviewScreen> {
       balance: lender.balance,
     );
     if (context.mounted) {
-      messenger.showSnackBar(const SnackBar(content: Text('借贷人已更新')));
+      messenger.showSnackBar(const SnackBar(content: Text('应收/应付已更新')));
     }
   }
 }

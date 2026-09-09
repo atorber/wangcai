@@ -31,13 +31,13 @@ class AccountProvider extends ChangeNotifier {
     const Account(
       id: 'alipay-default',
       name: '支付宝',
-      type: AccountType.alipay,
+      type: AccountType.onlineAccount,
       balance: 0,
     ),
     const Account(
       id: 'wechat-default',
       name: '微信支付',
-      type: AccountType.wechatPay,
+      type: AccountType.onlineAccount,
       balance: 0,
     ),
     const Account(

@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:finance_app/models/account.dart';
 import 'package:finance_app/models/transaction_record.dart';
+import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/providers/transaction_provider.dart';
 import 'package:finance_app/screens/add/add_transaction_screen.dart';
+import 'package:finance_app/screens/accounts/edit_account_dialog.dart';
 import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:finance_app/widgets/privacy_amount_text.dart';
@@ -17,38 +19,50 @@ class AccountDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surfaceContainerLowest.withValues(
-          alpha: 0.9,
-        ),
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: Text(
-          '账户详情',
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-      body: Consumer<TransactionProvider>(
-        builder: (context, transactionProvider, _) {
-          final related = transactionProvider.transactions
-              .where((item) {
-                return item.accountId == account.id ||
-                    item.transferAccountId == account.id;
-              })
-              .toList(growable: false);
-          final grouped = _groupRecords(related);
+    return Consumer2<AccountProvider, TransactionProvider>(
+      builder: (context, accountProvider, transactionProvider, _) {
+        final account = accountProvider.accounts.firstWhere(
+          (item) => item.id == this.account.id,
+          orElse: () => this.account,
+        );
+        final related = transactionProvider.transactions
+            .where((item) {
+              return item.accountId == account.id ||
+                  item.transferAccountId == account.id;
+            })
+            .toList(growable: false);
+        final grouped = _groupRecords(related);
 
-          return SingleChildScrollView(
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.surfaceContainerLowest.withValues(
+              alpha: 0.9,
+            ),
+            elevation: 0,
+            surfaceTintColor: Colors.transparent,
+            title: Text(
+              '账户详情',
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            actions: [
+              IconButton(
+                tooltip: '编辑账户',
+                onPressed: () =>
+                    showEditAccountDialog(context, account: account),
+                icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+              ),
+            ],
+          ),
+          body: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(context),
+                _buildHeader(context, account),
                 const SizedBox(height: 24),
                 _buildStatsSection(context, related),
                 const SizedBox(height: 24),
@@ -65,14 +79,17 @@ class AccountDetailScreen extends StatelessWidget {
                   ..._buildGroupedRecords(context, grouped),
               ],
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
-    return Container(
+  Widget _buildHeader(BuildContext context, Account account) {
+    return InkWell(
+      onTap: () => showEditAccountDialog(context, account: account),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -89,11 +106,22 @@ class AccountDetailScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            account.name,
-            style: Theme.of(
-              context,
-            ).textTheme.displayMedium?.copyWith(color: AppColors.onSurface),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  account.name,
+                  style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ),
+              const Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: AppColors.onSurfaceVariant,
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           Text(
@@ -104,7 +132,7 @@ class AccountDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            '当前余额',
+            '当前余额（点按可编辑）',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: AppColors.onSurfaceVariant,
             ),
@@ -137,6 +165,7 @@ class AccountDetailScreen extends StatelessWidget {
           ],
         ],
       ),
+    ),
     );
   }
 

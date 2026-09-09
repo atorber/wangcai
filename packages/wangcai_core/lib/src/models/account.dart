@@ -1,19 +1,51 @@
-enum AccountType { debitCard, creditCard, alipay, wechatPay, cash, other }
+enum AccountType {
+  cash,
+  creditCard,
+  debitCard,
+  onlineAccount,
+  investment,
+  storedValueCard,
+}
 
 AccountType accountTypeFromName(String name) {
   switch (name) {
     case 'creditCard':
       return AccountType.creditCard;
-    case 'alipay':
-      return AccountType.alipay;
-    case 'wechatPay':
-      return AccountType.wechatPay;
     case 'cash':
       return AccountType.cash;
+    case 'onlineAccount':
+    // Legacy values migrated to 网络账户.
+    case 'alipay':
+    case 'wechatPay':
+    case 'wechat':
     case 'other':
-      return AccountType.other;
+    // 应收/应付已统一为借贷人（Lender），旧账户类型按网络账户兜底。
+    case 'receivablePayable':
+      return AccountType.onlineAccount;
+    case 'investment':
+      return AccountType.investment;
+    case 'storedValueCard':
+      return AccountType.storedValueCard;
+    case 'debitCard':
     default:
       return AccountType.debitCard;
+  }
+}
+
+String accountTypeLabel(AccountType type) {
+  switch (type) {
+    case AccountType.cash:
+      return '现金';
+    case AccountType.creditCard:
+      return '信用卡';
+    case AccountType.debitCard:
+      return '储蓄卡/借记卡';
+    case AccountType.onlineAccount:
+      return '网络账户';
+    case AccountType.investment:
+      return '投资账户';
+    case AccountType.storedValueCard:
+      return '储值卡';
   }
 }
 
@@ -49,22 +81,7 @@ class Account {
     return creditLimit! - usedCredit;
   }
 
-  String get typeLabel {
-    switch (type) {
-      case AccountType.debitCard:
-        return '储蓄卡';
-      case AccountType.creditCard:
-        return '信用卡';
-      case AccountType.alipay:
-        return '支付宝';
-      case AccountType.wechatPay:
-        return '微信支付';
-      case AccountType.cash:
-        return '现金';
-      case AccountType.other:
-        return '其他';
-    }
-  }
+  String get typeLabel => accountTypeLabel(type);
 
   DateTime? nextPaymentDate({DateTime? from}) {
     if (paymentDay == null) {

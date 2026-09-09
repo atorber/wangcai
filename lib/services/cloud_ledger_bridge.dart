@@ -44,7 +44,7 @@ class CloudLedgerBridge {
 
     final config = await CloudSyncService.loadConfig();
     late final T result;
-    if (config != null) {
+    if (config != null && CloudSyncService.isSupportedOnCurrentPlatform) {
       final client = await CloudSyncService.createSyncClient(config);
       result = await client.writeTransaction(ledger, action);
       await CloudSyncService.setLocalRevision(ledger.revision);
@@ -76,7 +76,7 @@ class CloudLedgerBridge {
     final recurringProvider = context.read<RecurringProvider>();
 
     final config = await CloudSyncService.loadConfig();
-    if (config == null) {
+    if (config == null || !CloudSyncService.isSupportedOnCurrentPlatform) {
       return false;
     }
     final remote = await CloudSyncService.ensureFreshIfNeeded(config);

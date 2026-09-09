@@ -283,11 +283,11 @@ class Ledger {
     String? lenderName;
     if (type == TransactionType.lend || type == TransactionType.borrow) {
       if (lenderId == null || lenderId.isEmpty) {
-        throw const LedgerException('INVALID_PARAMS', '请选择借贷人');
+        throw const LedgerException('INVALID_PARAMS', '请选择应收/应付对方');
       }
       final lender = findLender(lenderId);
       if (lender == null) {
-        throw const LedgerException('NOT_FOUND', '借贷人不存在');
+        throw const LedgerException('NOT_FOUND', '应收/应付不存在');
       }
       lenderName = lender.name;
     }
@@ -451,15 +451,20 @@ class Ledger {
     double? creditLimit,
     int? billingDay,
     int? paymentDay,
+    bool recordBalanceDifference = false,
+    String adjustmentCategory = '余额调整',
+    String adjustmentNote = '编辑账户余额补记',
+    DateTime? adjustmentDate,
   }) {
     final index = _accounts.indexWhere((item) => item.id == id);
     if (index == -1) {
       throw const LedgerException('NOT_FOUND', '账户不存在');
     }
     final current = _accounts[index];
+    final previousBalance = current.balance;
     final updated = current.copyWith(
       name: name,
-      balance: balance,
+      balance: recordBalanceDifference ? previousBalance : balance,
       creditLimit: current.isCreditCard ? creditLimit : null,
       billingDay: current.isCreditCard ? billingDay : null,
       paymentDay: current.isCreditCard ? paymentDay : null,
@@ -468,7 +473,21 @@ class Ledger {
       clearPaymentDay: !current.isCreditCard || paymentDay == null,
     );
     _accounts[index] = updated;
-    return updated;
+
+    if (recordBalanceDifference) {
+      final delta = balance - previousBalance;
+      if (delta != 0) {
+        createTransaction(
+          type: delta > 0 ? TransactionType.income : TransactionType.expense,
+          amount: delta.abs(),
+          category: adjustmentCategory,
+          accountId: id,
+          date: adjustmentDate ?? DateTime.now(),
+          note: adjustmentNote,
+        );
+      }
+    }
+    return findAccount(id)!;
   }
 
   void deleteAccount(String id) {
@@ -484,11 +503,11 @@ class Ledger {
   Lender createLender(String name) {
     final trimmed = name.trim();
     if (trimmed.isEmpty) {
-      throw const LedgerException('INVALID_PARAMS', '借贷人名称不能为空');
+      throw const LedgerException('INVALID_PARAMS', '应收/应付名称不能为空');
     }
     for (final item in _lenders) {
       if (item.name == trimmed) {
-        throw const LedgerException('CONFLICT', '借贷人已存在');
+        throw const LedgerException('CONFLICT', '应收/应付已存在');
       }
     }
     final lender = Lender(id: _newId(), name: trimmed);
@@ -503,7 +522,7 @@ class Ledger {
   }) {
     final index = _lenders.indexWhere((item) => item.id == id);
     if (index == -1) {
-      throw const LedgerException('NOT_FOUND', '借贷人不存在');
+      throw const LedgerException('NOT_FOUND', '应收/应付不存在');
     }
     final updated = _lenders[index].copyWith(
       name: name.trim().isEmpty ? _lenders[index].name : name.trim(),

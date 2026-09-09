@@ -18,14 +18,16 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
   final TextEditingController _creditLimitController = TextEditingController();
   int _billingDay = 1;
   int _paymentDay = 20;
-  final List<String> _accountTypeKeys = const [
-    'debitCard',
-    'creditCard',
-    'alipay',
-    'wechatPay',
+
+  /// 应收/应付与借贷人同一实体，创建时走 Lender，不写 Account。
+  static const List<String> _typeKeys = [
     'cash',
-    'other',
-    'lender',
+    'creditCard',
+    'debitCard',
+    'onlineAccount',
+    'investment',
+    'receivablePayable',
+    'storedValueCard',
   ];
 
   @override
@@ -36,9 +38,11 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     super.dispose();
   }
 
+  String get _selectedTypeKey => _typeKeys[_selectedTypeIndex];
+  bool get _isReceivablePayable => _selectedTypeKey == 'receivablePayable';
+
   @override
   Widget build(BuildContext context) {
-    final isLenderType = _selectedTypeKey == 'lender';
     return Scaffold(
       backgroundColor: AppColors.surfaceBright,
       appBar: AppBar(
@@ -62,7 +66,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
         child: Column(
           children: [
-            if (!isLenderType) ...[
+            if (!_isReceivablePayable) ...[
               _buildInitialBalanceSection(),
               const SizedBox(height: 32),
             ],
@@ -226,7 +230,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '账户名称',
+          _isReceivablePayable ? '对方名称' : '账户名称',
           style: Theme.of(
             context,
           ).textTheme.labelMedium?.copyWith(color: AppColors.onSurfaceVariant),
@@ -244,7 +248,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
               context,
             ).textTheme.bodyMedium?.copyWith(color: AppColors.onBackground),
             decoration: InputDecoration(
-              hintText: '例如：招商银行储蓄卡',
+              hintText: _isReceivablePayable ? '例如：张三' : '例如：招商银行储蓄卡',
               hintStyle: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: AppColors.outlineVariant),
@@ -278,11 +282,11 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
             crossAxisCount: 2,
             mainAxisSpacing: 16,
             crossAxisSpacing: 16,
-            childAspectRatio: 2.2,
+            childAspectRatio: 2.0,
           ),
-          itemCount: _accountTypeKeys.length,
+          itemCount: _typeKeys.length,
           itemBuilder: (context, index) {
-            final accountTypeKey = _accountTypeKeys[index];
+            final typeKey = _typeKeys[index];
             final isSelected = _selectedTypeIndex == index;
             return GestureDetector(
               onTap: () {
@@ -305,7 +309,7 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(
-                      _iconForType(accountTypeKey),
+                      _iconForTypeKey(typeKey),
                       color: isSelected
                           ? AppColors.onPrimaryContainer
                           : AppColors.onSurfaceVariant,
@@ -313,7 +317,9 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _labelForType(accountTypeKey),
+                      _labelForTypeKey(typeKey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: isSelected
                             ? AppColors.onPrimaryContainer
@@ -358,12 +364,21 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请输入账户名称')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isReceivablePayable ? '请输入对方名称' : '请输入账户名称'),
+        ),
+      );
+      return;
+    }
+
+    if (_isReceivablePayable) {
+      await context.read<AccountProvider>().addLender(name);
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
       return;
     }
 
@@ -376,92 +391,41 @@ class _AddAccountScreenState extends State<AddAccountScreen> {
       return;
     }
 
-    if (_selectedTypeKey == 'lender') {
-      context.read<AccountProvider>().addLender(name);
-    } else {
-      final isCredit = _selectedTypeKey == 'creditCard';
-      final creditLimitText = _creditLimitController.text.trim();
-      final creditLimit = creditLimitText.isEmpty
-          ? null
-          : double.tryParse(creditLimitText);
-      if (isCredit && creditLimitText.isNotEmpty && creditLimit == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('请输入合法信用额度')));
-        return;
-      }
-      context.read<AccountProvider>().addAccount(
-        name: name,
-        type: _accountTypeFromKey(_selectedTypeKey),
-        balance: balance,
-        creditLimit: isCredit ? creditLimit : null,
-        billingDay: isCredit ? _billingDay : null,
-        paymentDay: isCredit ? _paymentDay : null,
-      );
+    final isCredit = _selectedTypeKey == 'creditCard';
+    final creditLimitText = _creditLimitController.text.trim();
+    final creditLimit = creditLimitText.isEmpty
+        ? null
+        : double.tryParse(creditLimitText);
+    if (isCredit && creditLimitText.isNotEmpty && creditLimit == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请输入合法信用额度')));
+      return;
     }
+    context.read<AccountProvider>().addAccount(
+      name: name,
+      type: accountTypeFromName(_selectedTypeKey),
+      balance: balance,
+      creditLimit: isCredit ? creditLimit : null,
+      billingDay: isCredit ? _billingDay : null,
+      paymentDay: isCredit ? _paymentDay : null,
+    );
 
+    if (!mounted) return;
     Navigator.of(context).pop(true);
   }
 
-  String get _selectedTypeKey => _accountTypeKeys[_selectedTypeIndex];
-
-  String _labelForType(String typeKey) {
-    switch (typeKey) {
-      case 'debitCard':
-        return '储蓄卡';
-      case 'creditCard':
-        return '信用卡';
-      case 'alipay':
-        return '支付宝';
-      case 'wechatPay':
-        return '微信支付';
-      case 'cash':
-        return '现金';
-      case 'other':
-        return '其他';
-      case 'lender':
-        return '借贷人';
-      default:
-        return '其他';
+  String _labelForTypeKey(String typeKey) {
+    if (typeKey == 'receivablePayable') {
+      return '应收/应付';
     }
+    return accountTypeLabel(accountTypeFromName(typeKey));
   }
 
-  IconData _iconForType(String typeKey) {
-    switch (typeKey) {
-      case 'debitCard':
-        return Icons.credit_card;
-      case 'creditCard':
-        return Icons.credit_score;
-      case 'alipay':
-        return Icons.account_balance_wallet;
-      case 'wechatPay':
-        return Icons.chat;
-      case 'cash':
-        return Icons.payments;
-      case 'other':
-        return Icons.more_horiz;
-      case 'lender':
-        return Icons.person_outline;
-      default:
-        return Icons.more_horiz;
+  IconData _iconForTypeKey(String typeKey) {
+    if (typeKey == 'receivablePayable') {
+      return Icons.swap_horiz;
     }
-  }
-
-  AccountType _accountTypeFromKey(String typeKey) {
-    switch (typeKey) {
-      case 'debitCard':
-        return AccountType.debitCard;
-      case 'creditCard':
-        return AccountType.creditCard;
-      case 'alipay':
-        return AccountType.alipay;
-      case 'wechatPay':
-        return AccountType.wechatPay;
-      case 'cash':
-        return AccountType.cash;
-      case 'other':
-      default:
-        return AccountType.other;
-    }
+    return iconForAccountType(accountTypeFromName(typeKey));
   }
 }

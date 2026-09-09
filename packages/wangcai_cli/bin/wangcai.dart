@@ -65,6 +65,21 @@ Future<void> main(List<String> arguments) async {
     ..addOption('credit-limit')
     ..addOption('billing-day')
     ..addOption('payment-day');
+  final accountsUpdate = accounts.addCommand('update');
+  common(accountsUpdate);
+  accountsUpdate
+    ..addOption('id', help: '账户 id 或名称')
+    ..addOption('account', help: '账户 id 或名称（与 --id 二选一）')
+    ..addOption('name', help: '新名称，默认保持不变')
+    ..addOption('balance', help: '新余额', mandatory: true)
+    ..addFlag(
+      'record-diff',
+      negatable: false,
+      help: '将「新余额−原余额」补记为收入/支出',
+    )
+    ..addOption('credit-limit')
+    ..addOption('billing-day')
+    ..addOption('payment-day');
 
   final categories = parser.addCommand('categories');
   common(categories.addCommand('list'));
@@ -213,7 +228,7 @@ String _usage(ArgParser parser) => '''
 
 同步: status | pull | push [--force]
 账单: tx add|list|delete
-账户: accounts list|add
+账户: accounts list|add|update
 分类: categories list|add|update|delete
 预算: budgets list|upsert|delete
 周期: recurring list|upsert|delete|run
@@ -244,7 +259,10 @@ Future<void> _cmdStatus(CliRuntime runtime) async {
   }
   _ok({
     'protocol': runtime.config.protocol.name,
+    'folderPath': runtime.config.folderPath,
     'ledgerPath': runtime.config.ledgerPath,
+    'revisionPath': runtime.config.revisionPath,
+    'lockPath': runtime.config.lockPath,
     'localRevision': localRevision,
     'remoteRevision': remoteRevision,
     'alignment': alignment,
@@ -357,7 +375,7 @@ Future<void> _cmdTx(CliRuntime runtime, ArgResults command) async {
 Future<void> _cmdAccounts(CliRuntime runtime, ArgResults command) async {
   final sub = command.command;
   if (sub == null) {
-    _fail('请使用 wangcai accounts list|add');
+    _fail('请使用 wangcai accounts list|add|update');
     return;
   }
   switch (sub.name) {
@@ -393,6 +411,45 @@ Future<void> _cmdAccounts(CliRuntime runtime, ArgResults command) async {
       });
       await runtime.saveLocal();
       _ok({'account': account.toJson(), 'revision': runtime.ledger.revision});
+    case 'update':
+      final key = (sub['id'] as String?)?.trim().isNotEmpty == true
+          ? sub['id'] as String
+          : sub['account'] as String?;
+      if (key == null || key.trim().isEmpty) {
+        _fail('请提供 --id 或 --account');
+        return;
+      }
+      final balance = double.tryParse(sub['balance'] as String? ?? '');
+      if (balance == null) {
+        _fail('请提供合法 --balance');
+        return;
+      }
+      final recordDiff = sub['record-diff'] as bool? ?? false;
+      final creditLimit = double.tryParse(sub['credit-limit'] as String? ?? '');
+      final billingDay = int.tryParse(sub['billing-day'] as String? ?? '');
+      final paymentDay = int.tryParse(sub['payment-day'] as String? ?? '');
+      final account = await runtime.client.writeTransaction(runtime.ledger, (
+        ledger,
+      ) async {
+        final current = _resolveAccount(ledger, key);
+        return ledger.updateAccount(
+          id: current.id,
+          name: (sub['name'] as String?)?.trim().isNotEmpty == true
+              ? sub['name'] as String
+              : current.name,
+          balance: balance,
+          creditLimit: creditLimit ?? current.creditLimit,
+          billingDay: billingDay ?? current.billingDay,
+          paymentDay: paymentDay ?? current.paymentDay,
+          recordBalanceDifference: recordDiff,
+        );
+      });
+      await runtime.saveLocal();
+      _ok({
+        'account': account.toJson(),
+        'recordDiff': recordDiff,
+        'revision': runtime.ledger.revision,
+      });
     default:
       _fail('未知子命令：${sub.name}');
   }
@@ -713,7 +770,7 @@ Lender _resolveLender(Ledger ledger, String key) {
       return item;
     }
   }
-  throw const LedgerException('NOT_FOUND', '借贷人不存在');
+  throw const LedgerException('NOT_FOUND', '应收/应付不存在');
 }
 
 String _resolveCategoryId(

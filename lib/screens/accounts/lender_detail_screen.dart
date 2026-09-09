@@ -22,7 +22,7 @@ class LenderDetailScreen extends StatelessWidget {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         title: Text(
-          '借贷人详情',
+          '应收/应付详情',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: AppColors.primary,
             fontWeight: FontWeight.w600,
@@ -118,7 +118,7 @@ class LenderDetailScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        '当前借贷人暂无关联账单',
+        '当前暂无关联账单',
         textAlign: TextAlign.center,
         style: Theme.of(
           context,

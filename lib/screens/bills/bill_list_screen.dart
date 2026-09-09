@@ -776,7 +776,7 @@ class _BillListScreenState extends State<BillListScreen> {
         return '$datePart • ${record.accountName} -> $toAccount';
       case TransactionType.lend:
       case TransactionType.borrow:
-        final lender = record.lenderName ?? '未选择借贷人';
+        final lender = record.lenderName ?? '未选择对方';
         return '$datePart • ${record.accountName} • $lender';
       case TransactionType.expense:
       case TransactionType.income:

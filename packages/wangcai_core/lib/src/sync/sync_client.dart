@@ -6,12 +6,40 @@ import 'package:wangcai_core/src/models/sync_lock.dart';
 import 'package:wangcai_core/src/sync/cloud_sync_exception.dart';
 import 'package:wangcai_core/src/sync/object_store.dart';
 
-/// 基于 [ObjectStore] 的账本同步客户端：revision 对齐 + 租约锁。
+/// 远端独立版本文件内容。
+class RemoteRevisionInfo {
+  const RemoteRevisionInfo({
+    required this.revision,
+    this.deviceId,
+    this.updatedAt,
+  });
+
+  final int revision;
+  final String? deviceId;
+  final DateTime? updatedAt;
+
+  Map<String, dynamic> toJson() => {
+    'revision': revision,
+    if (deviceId != null && deviceId!.isNotEmpty) 'deviceId': deviceId,
+    if (updatedAt != null) 'updatedAt': updatedAt!.toUtc().toIso8601String(),
+  };
+
+  factory RemoteRevisionInfo.fromJson(Map<String, dynamic> json) {
+    return RemoteRevisionInfo(
+      revision: (json['revision'] as num?)?.toInt() ?? 0,
+      deviceId: json['deviceId'] as String?,
+      updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '')?.toUtc(),
+    );
+  }
+}
+
+/// 基于 [ObjectStore] 的账本同步客户端：独立 revision 文件 + 租约锁。
 class SyncClient {
   SyncClient({
     required this.store,
     required this.ownerId,
     required this.ledgerPath,
+    required this.revisionPath,
     required this.lockPath,
     this.leaseMs = SyncLock.defaultLeaseMs,
     this.lockRetry = const Duration(milliseconds: 500),
@@ -21,15 +49,18 @@ class SyncClient {
   final ObjectStore store;
   final String ownerId;
   final String ledgerPath;
+  final String revisionPath;
   final String lockPath;
   final int leaseMs;
   final Duration lockRetry;
   final Duration lockTimeout;
 
-  /// 下载远端 bundle；不存在返回 null，存在则返回其 [LedgerBundle.revision]。
+  /// 读取远端版本：取 [revisionPath] 与账本内嵌 revision 的较大值。
+  /// 避免旧客户端只更新 records、未写 revision 文件时，新客户端误判版本。
   Future<int?> fetchRemoteRevision() async {
+    final fromFile = await _readRevisionFile();
     final bundle = await downloadBundle();
-    return bundle?.revision;
+    return _maxRevision(fromFile?.revision, bundle?.revision);
   }
 
   Future<LedgerBundle?> downloadBundle() async {
@@ -60,32 +91,51 @@ class SyncClient {
       payload,
       contentType: 'application/json',
     );
+    await _writeRevisionFile(
+      RemoteRevisionInfo(
+        revision: bundle.revision,
+        deviceId: bundle.deviceId,
+        updatedAt: bundle.exportedAt.toUtc(),
+      ),
+    );
   }
 
   /// 若远端 revision 大于本地，则用远端覆盖 [local] 并返回同一实例。
-  /// 本地更新或相等时保持本地不变（不把较旧远端盖过来）。
   Future<Ledger> ensureFresh(Ledger local) async {
+    final fromFile = await _readRevisionFile();
     final remote = await downloadBundle();
-    if (remote != null && remote.revision > local.revision) {
-      local.replaceAll(remote);
+    final remoteRevision = _maxRevision(fromFile?.revision, remote?.revision);
+    if (remote == null ||
+        remoteRevision == null ||
+        remoteRevision <= local.revision) {
+      return local;
     }
+    local.replaceAll(
+      remote.revision >= remoteRevision
+          ? remote
+          : remote.copyWith(revision: remoteRevision),
+    );
     return local;
   }
 
   /// 持锁写事务：按 revision 选底稿，再执行 [action]、bump、上传。
-  ///
-  /// - 远端更新：先用远端覆盖本地，再改、再推（更新本地）
-  /// - 本地更新或相等：保留本地底稿再改、再推（更新云端）
-  /// - 无远端：以本地新建上传
   Future<T> writeTransaction<T>(
     Ledger local,
     Future<T> Function(Ledger ledger) action,
   ) async {
     await _acquireLock();
     try {
+      final fromFile = await _readRevisionFile();
       final remote = await downloadBundle();
-      if (remote != null && remote.revision > local.revision) {
-        local.replaceAll(remote);
+      final remoteRevision = _maxRevision(fromFile?.revision, remote?.revision);
+      if (remote != null &&
+          remoteRevision != null &&
+          remoteRevision > local.revision) {
+        local.replaceAll(
+          remote.revision >= remoteRevision
+              ? remote
+              : remote.copyWith(revision: remoteRevision),
+        );
       }
       final result = await action(local);
       local.bumpRevision(deviceId: ownerId);
@@ -97,22 +147,22 @@ class SyncClient {
   }
 
   /// App「立即备份」：持锁后以本地内容覆盖远端。
-  /// 若远端 revision 更大且 [force] 为 false，抛出 `CONFLICT`。
   Future<LedgerBundle> pushLocal(Ledger local, {bool force = false}) async {
     await _acquireLock();
     try {
+      final fromFile = await _readRevisionFile();
       final remote = await downloadBundle();
-      if (remote != null && remote.revision > local.revision && !force) {
+      final remoteRevision =
+          _maxRevision(fromFile?.revision, remote?.revision) ?? 0;
+      if (remoteRevision > local.revision && !force) {
         throw CloudSyncException(
-          '远端 revision (${remote.revision}) 新于本地 (${local.revision})，拒绝覆盖',
+          '远端 revision ($remoteRevision) 新于本地 (${local.revision})，拒绝覆盖',
           code: 'CONFLICT',
         );
       }
-      final baseRevision = remote == null
-          ? local.revision
-          : (remote.revision > local.revision
-                ? remote.revision
-                : local.revision);
+      final baseRevision = remoteRevision > local.revision
+          ? remoteRevision
+          : local.revision;
       local.revision = baseRevision;
       local.bumpRevision(deviceId: ownerId);
       final bundle = local.toBundle();
@@ -124,7 +174,6 @@ class SyncClient {
   }
 
   /// App「恢复覆盖」：持锁拉取远端并写入 [local]。
-  /// 加锁失败（如 WebDAV 建目录超时）时降级为不加锁拉取，避免恢复被阻断。
   Future<LedgerBundle> pullReplace(Ledger local) async {
     var locked = false;
     try {
@@ -134,12 +183,18 @@ class SyncClient {
       locked = false;
     }
     try {
+      final fromFile = await _readRevisionFile();
       final remote = await downloadBundle();
       if (remote == null) {
         throw const CloudSyncException(
           '远端账本不存在，请先执行备份',
           code: 'NOT_FOUND',
         );
+      }
+      final remoteRevision = _maxRevision(fromFile?.revision, remote.revision);
+      if (remoteRevision != null && remoteRevision > remote.revision) {
+        local.replaceAll(remote.copyWith(revision: remoteRevision));
+        return local.toBundle();
       }
       local.replaceAll(remote);
       return remote;
@@ -148,6 +203,41 @@ class SyncClient {
         await _releaseLock();
       }
     }
+  }
+
+  int? _maxRevision(int? a, int? b) {
+    if (a == null) {
+      return b;
+    }
+    if (b == null) {
+      return a;
+    }
+    return a > b ? a : b;
+  }
+
+  Future<RemoteRevisionInfo?> _readRevisionFile() async {
+    final bytes = await store.get(revisionPath);
+    if (bytes == null || bytes.isEmpty) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(utf8.decode(bytes));
+      if (decoded is! Map) {
+        return null;
+      }
+      return RemoteRevisionInfo.fromJson(Map<String, dynamic>.from(decoded));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _writeRevisionFile(RemoteRevisionInfo info) async {
+    final payload = utf8.encode(jsonEncode(info.toJson()));
+    await store.put(
+      revisionPath,
+      payload,
+      contentType: 'application/json',
+    );
   }
 
   Future<void> _acquireLock() async {
@@ -166,7 +256,6 @@ class SyncClient {
 
       final existing = await _readLock();
       if (existing == null) {
-        // 竞态：锁刚被删，短暂重试。
         if (!_hasTimeLeft(deadline)) {
           throw const CloudSyncException(
             '获取同步锁超时：远端锁忙碌',

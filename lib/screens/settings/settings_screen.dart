@@ -587,7 +587,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             '将覆盖本地数据：\n'
             '账单 ${bundle.transactions.length} 条\n'
             '账户 ${bundle.accounts.length} 个\n'
-            '借贷人 ${bundle.lenders.length} 个\n'
+            '应收/应付 ${bundle.lenders.length} 个\n'
             '分类 ${bundle.categories.length} 个',
           ),
           actions: [

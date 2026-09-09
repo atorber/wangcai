@@ -6,7 +6,7 @@ class ObjectMeta {
   final int? contentLength;
 }
 
-/// 统一对象存储抽象，路径语义由 WebDAV remotePath / S3 objectKey 决定。
+/// 统一对象存储抽象；路径由账本目录布局派生（ledger / revision / lock）。
 abstract class ObjectStore {
   Future<void> put(String path, List<int> bytes, {String? contentType});
 

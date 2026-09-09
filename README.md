@@ -32,12 +32,12 @@
 
 ## 多端同步（WebDAV / S3）
 
-- 账本为整文件 JSON（`LedgerBundle`），含单调递增 `revision`
+- 账本目录由应用定义：用户只配置文件夹；内含 `records.json` + 独立 `revision.json` + `lock.json`
 - **读**：仅当 `remote.revision > local` 时用远端覆盖本地；本地已新则保持本地
 - **写**：加锁后按 revision 选底稿——远端更新则先拉齐再改；本地更新或相等则保留本地再改并上传（更新云端）
 - **手动推送**：远端更新且未确认/`--force` 时返回 `CONFLICT`
 - **手动拉取**：远端整包覆盖本地
-- 写入前加锁：远端同路径 `.lock` 租约；冲突返回 `LOCK_BUSY`
+- 写入前加锁：`lock.json` 租约；冲突返回 `LOCK_BUSY`
 - WebDAV `putIfAbsent` 先探测存在性（兼容坚果云忽略 `If-None-Match`）
 - App 首页 / 账单 / 统计进入时会 `ensureFresh`；日常记账经 `CloudLedgerBridge` 写穿
 - CLI / Skill 与 App 共用同一套协议与远端账本
@@ -53,7 +53,7 @@
   "serverUrl": "https://dav.jianguoyun.com/dav",
   "username": "你的邮箱",
   "password": "应用密码",
-  "remotePath": "/wangcai/records.json"
+  "remotePath": "/wangcai"
 }
 ```
 
@@ -108,7 +108,7 @@ $BIN stats --period month
 
 1. **CLI 冒烟**：`$BIN status` → `$BIN pull` → `$BIN accounts list`
 2. **Skill 对话**：新开 Chat，说「用 wangcai-ai 查账本状态 / 记一笔…」，确认 Agent 调用的是 Skill 目录下的 `bin/wangcai`，而不是 `dart run` 或仓库源码
-3. **锁（可选）**：远端若存在未过期的 `.lock` 且 owner 非本机，写入应返回 `LOCK_BUSY`
+3. **锁（可选）**：远端若存在未过期的 `lock.json` 且 owner 非本机，写入应返回 `LOCK_BUSY`
 
 ---
 
@@ -129,7 +129,7 @@ $BIN stats --period month
 *   **入口**: 底部导航栏点击 **“首页”**。
 *   **操作**:
     *   **资产概览**: 页面顶部会显示您的【总资产】、【净资产】和【总负债】。
-    *   **我的账户**: 向下滚动可以查看所有已绑定的账户列表（包含储蓄卡、信用卡、支付宝、微信等）。点击卡片可以查看详细余额或信用卡本期应还金额。
+    *   **我的账户**: 向下滚动可以查看所有已绑定的账户列表（现金、信用卡、储蓄卡/借记卡、网络账户、投资账户、储值卡等）及应收/应付。点击卡片可以查看详细余额或信用卡本期应还金额。
     *   **添加新账户**: 点击列表底部的 **“添加账户”** 按钮，输入初始余额、账户名称并选择类型即可新增账户。
 
 ### 3. 查看财务统计
@@ -149,9 +149,10 @@ $BIN stats --period month
     *   **云备份（WebDAV / S3）**:
         1. 在设置中点击 **“云备份 (WebDAV / S3)”**。
         2. 选择协议：`WebDAV` 或 `S3`（兼容 MinIO / R2 / OSS 等）。
-        3. WebDAV：填写服务地址、用户名、密码与远端路径（例如坚果云 `https://dav.jianguoyun.com/dav` + `/wangcai/records.json`）。
-        4. S3：填写 Endpoint、Region、Bucket、Object Key、Access Key / Secret；自托管建议开启 Path-style。
-        5. 配置完成后可在状态页执行「立即备份」或「恢复覆盖本地」；日常记账在已配置时会自动加锁写穿云端。
+        3. WebDAV：填写服务地址、用户名、密码与远端**目录**（例如坚果云 `https://dav.jianguoyun.com/dav` + `/wangcai`）。
+        4. S3：填写 Endpoint、Region、Bucket、对象目录前缀（如 `wangcai`）、Access Key / Secret；自托管建议开启 Path-style。
+        5. 目录内文件由旺财自动生成（`records.json` / `revision.json` / `lock.json`），无需指定到文件。
+        6. 配置完成后可在状态页执行「立即备份」或「恢复覆盖本地」；日常记账在已配置时会自动加锁写穿云端。
 
 ---
 

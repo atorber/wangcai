@@ -32,6 +32,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   final TextEditingController _noteController = TextEditingController();
   final FocusNode _amountFocusNode = FocusNode();
   bool _initializedFromRecord = false;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -140,10 +141,14 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
           child: ElevatedButton(
-            onPressed: _saveTransaction,
+            onPressed: _saving ? null : _saveTransaction,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryContainer,
               foregroundColor: AppColors.onPrimary,
+              disabledBackgroundColor: AppColors.primaryContainer.withValues(
+                alpha: 0.5,
+              ),
+              disabledForegroundColor: AppColors.onPrimary,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -152,7 +157,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               shadowColor: AppColors.primaryContainer.withValues(alpha: 0.15),
             ),
             child: Text(
-              '保存',
+              _saving ? '保存中…' : '保存',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 fontWeight: FontWeight.w600,
                 color: AppColors.onPrimary,
@@ -490,7 +495,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 4),
           child: Text(
-            '借贷人',
+            '应收/应付',
             style: Theme.of(
               context,
             ).textTheme.labelMedium?.copyWith(color: AppColors.secondary),
@@ -511,7 +516,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                         ? _selectedLenderId
                         : (lenders.isNotEmpty ? lenders.first.id : null),
                     isExpanded: true,
-                    hint: const Text('请选择借贷人'),
+                    hint: const Text('请选择对方'),
                     items: lenders
                         .map<DropdownMenuItem<String>>(
                           (item) => DropdownMenuItem<String>(
@@ -698,6 +703,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   }
 
   Future<void> _saveTransaction() async {
+    if (_saving) {
+      return;
+    }
     final amountText = _amountController.text.trim();
     final amount = double.tryParse(amountText);
     if (amount == null || amount <= 0) {
@@ -770,28 +778,91 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       if (lender == null) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('请选择借贷人')));
+        ).showSnackBar(const SnackBar(content: Text('请选择应收/应付对方')));
         return;
       }
       lenderId = lender.id;
       lenderName = lender.name;
     }
 
-    if (widget.initialRecord == null) {
+    setState(() => _saving = true);
+    try {
+      if (widget.initialRecord == null) {
+        try {
+          await CloudLedgerBridge.mutate(
+            context,
+            action: (ledger) async {
+              return ledger.createTransaction(
+                type: type,
+                amount: amount,
+                category: category,
+                accountId: selectedAccount.id,
+                transferAccountId: transferAccountId,
+                lenderId: lenderId,
+                date: _selectedDate,
+                note: _noteController.text.trim(),
+              );
+            },
+          );
+        } on CloudSyncException catch (e) {
+          if (!mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '保存失败：$e',
+              ),
+            ),
+          );
+          return;
+        } on LedgerException catch (e) {
+          if (!mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(e.message)));
+          return;
+        }
+
+        if (!mounted) {
+          return;
+        }
+        _resetFormForNextEntry();
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('账单已保存')));
+        if (widget.onSaved != null) {
+          widget.onSaved!();
+          return;
+        }
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop(true);
+        }
+        return;
+      }
+
+      final oldRecord = widget.initialRecord!;
+      final updated = TransactionRecord(
+        id: oldRecord.id,
+        type: type,
+        amount: amount,
+        category: category,
+        accountId: selectedAccount.id,
+        accountName: selectedAccount.name,
+        transferAccountId: transferAccountId,
+        transferAccountName: transferAccountName,
+        lenderId: lenderId,
+        lenderName: lenderName,
+        date: _selectedDate,
+        note: _noteController.text.trim(),
+      );
       try {
         await CloudLedgerBridge.mutate(
           context,
           action: (ledger) async {
-            return ledger.createTransaction(
-              type: type,
-              amount: amount,
-              category: category,
-              accountId: selectedAccount.id,
-              transferAccountId: transferAccountId,
-              lenderId: lenderId,
-              date: _selectedDate,
-              note: _noteController.text.trim(),
-            );
+            return ledger.updateTransaction(updated);
           },
         );
       } on CloudSyncException catch (e) {
@@ -801,7 +872,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '保存失败：$e',
+              e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '更新失败：$e',
             ),
           ),
         );
@@ -817,70 +888,28 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('账单已保存')));
-        if (widget.onSaved != null) {
-          widget.onSaved!();
-          return;
-        }
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop(true);
-          return;
-        }
-        _amountController.clear();
-        _noteController.clear();
+        Navigator.of(context).pop(true);
       }
-      return;
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
     }
+  }
 
-    final oldRecord = widget.initialRecord!;
-    final updated = TransactionRecord(
-      id: oldRecord.id,
-      type: type,
-      amount: amount,
-      category: category,
-      accountId: selectedAccount.id,
-      accountName: selectedAccount.name,
-      transferAccountId: transferAccountId,
-      transferAccountName: transferAccountName,
-      lenderId: lenderId,
-      lenderName: lenderName,
-      date: _selectedDate,
-      note: _noteController.text.trim(),
-    );
-    try {
-      await CloudLedgerBridge.mutate(
-        context,
-        action: (ledger) async {
-          return ledger.updateTransaction(updated);
-        },
-      );
-    } on CloudSyncException catch (e) {
-      if (!mounted) {
+  /// 新建成功后清空金额/备注并刷新时间，避免连续记账在旧金额上累加。
+  void _resetFormForNextEntry() {
+    _amountController.clear();
+    _noteController.clear();
+    setState(() {
+      _selectedDate = DateTime.now();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || widget.initialRecord != null) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            e.code == 'LOCK_BUSY' ? '云端账本正被其他端写入，请稍后重试' : '更新失败：$e',
-          ),
-        ),
-      );
-      return;
-    } on LedgerException catch (e) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
-      return;
-    }
-
-    if (mounted) {
-      Navigator.of(context).pop(true);
-    }
+      FocusScope.of(context).requestFocus(_amountFocusNode);
+    });
   }
 
   void _applyQuickAmount(double delta) {
@@ -902,7 +931,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('新增借贷人'),
+        title: const Text('新增应收/应付'),
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(hintText: '请输入姓名'),

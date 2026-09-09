@@ -24,7 +24,7 @@ class Lender {
   factory Lender.fromJson(Map<String, dynamic> json) {
     return Lender(
       id: json['id'] as String? ?? '${DateTime.now().microsecondsSinceEpoch}',
-      name: json['name'] as String? ?? '未命名借贷人',
+      name: json['name'] as String? ?? '未命名应收/应付',
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
     );
   }

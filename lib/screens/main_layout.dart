@@ -23,10 +23,10 @@ class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
   bool _recurringSyncStarted = false;
 
-  List<Widget> get _screens => [
+  late final List<Widget> _screens = [
     const AssetOverviewScreen(),
     const FinancialStatsScreen(),
-    AddTransactionScreen(onSaved: _switchToBillTab),
+    const AddTransactionScreen(),
     const BillListScreen(),
     const SettingsScreen(),
   ];
@@ -96,15 +96,6 @@ class _MainLayoutState extends State<MainLayout> {
     recurring.addListener(listener);
     transactions.addListener(listener);
     accounts.addListener(listener);
-  }
-
-  void _switchToBillTab() {
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _currentIndex = 3;
-    });
   }
 
   void _onItemTapped(int index) {

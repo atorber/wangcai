@@ -80,7 +80,7 @@
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `name` | string | 是 | trim 后非空 |
-| `type` | AccountType | 是 | 不含 `lender`（借贷人走 `lenders.create`） |
+| `type` | AccountType | 是 | 见 models.md；应收/应付（借贷人）走 `lenders.create` |
 | `balance` | number | 是 | 初始余额。信用卡欠款传负数 |
 | `creditLimit` | number \| null | 否 | 仅 `creditCard` 写入 |
 | `billingDay` | int \| null | 否 | 1–28，仅信用卡 |

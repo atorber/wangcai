@@ -20,14 +20,16 @@
 
 | 值 | 中文 |
 |----|------|
-| `debitCard` | 储蓄卡 |
-| `creditCard` | 信用卡 |
-| `alipay` | 支付宝 |
-| `wechatPay` | 微信支付 |
 | `cash` | 现金 |
-| `other` | 其他 |
+| `creditCard` | 信用卡 |
+| `debitCard` | 储蓄卡/借记卡 |
+| `onlineAccount` | 网络账户 |
+| `investment` | 投资账户 |
+| `storedValueCard` | 储值卡 |
 
-未知值按 `debitCard` 解析。
+兼容旧值：`alipay` / `wechatPay` / `wechat` / `other` / `receivablePayable` → `onlineAccount`。未知值按 `debitCard` 解析。
+
+**应收/应付**：与借贷人（`Lender`）同一概念，走 `lenders.*`，不是 `AccountType`。
 
 ### RecurringFrequency
 
@@ -94,8 +96,8 @@
 |----|------|------|---------|
 | `debit-default` | 招商银行储蓄卡 | debitCard | 1000 |
 | `credit-default` | 浦发银行信用卡 | creditCard | 0 |
-| `alipay-default` | 支付宝 | alipay | 0 |
-| `wechat-default` | 微信支付 | wechatPay | 0 |
+| `alipay-default` | 支付宝 | onlineAccount | 0 |
+| `wechat-default` | 微信支付 | onlineAccount | 0 |
 | `cash-default` | 现金 | cash | 0 |
 
 一旦 SharedPreferences 有 `accounts_v1`，不再使用上述默认值。
@@ -247,7 +249,7 @@ recurring_{ruleId}_{nextRunDate.millisecondsSinceEpoch}
 
 ## AppBackupBundle（账本文件）
 
-当前 App 上传/导出的根对象。WebDAV 远端路径默认 `/wangcai/records.json`。
+当前 App 上传/导出的根对象。远端默认目录 WebDAV `/wangcai/`、S3 `wangcai/`，账本文件为其中的 `records.json`；版本见同目录 `revision.json`。
 
 ```json
 {

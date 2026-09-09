@@ -4,5 +4,5 @@
   "serverUrl": "https://dav.example.com/remote.php/dav/files/user",
   "username": "user",
   "password": "app-password",
-  "remotePath": "/wangcai/records.json"
+  "remotePath": "/wangcai"
 }

@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:wangcai_core/src/models/cloud_sync_config.dart';
-import 'package:wangcai_core/src/models/sync_lock.dart';
 import 'package:wangcai_core/src/sync/cloud_sync_exception.dart';
 import 'package:wangcai_core/src/sync/object_store.dart';
 
@@ -250,16 +249,8 @@ class WebDavObjectStore implements ObjectStore {
     };
   }
 
-  /// 锁文件与账本同目录，恢复/加锁时不必 MKCOL；避免坚果云对已存在目录 MKCOL 超时。
-  bool _isLockSidecarPath(String path) {
-    final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
-    return trimmed.endsWith(SyncLock.fileSuffix) || trimmed.endsWith('.lock');
-  }
-
   Future<void> _ensureParentDirectoriesIfNeeded(String path) async {
-    if (_isLockSidecarPath(path)) {
-      return;
-    }
+    // 目录创建为尽力而为；锁/版本/账本同目录，首次写入会尝试建文件夹。
     await _ensureParentDirectories(path);
   }
 

@@ -25,7 +25,7 @@
 | `deviceId` | 是 | 本机设备标识，写入锁 |
 | `serverUrl` | 是 | WebDAV 根 URL |
 | `username` / `password` | 是 | 认证 |
-| `remotePath` | 否 | 默认 `/wangcai/records.json` |
+| `remotePath` | 否 | 远端**目录**，默认 `/wangcai`（旧值若指向 `*.json` 会自动取父目录） |
 
 ### S3（`protocol: "s3"`）
 
@@ -35,24 +35,26 @@
 | `endpoint` | 是 | S3 兼容 endpoint |
 | `region` | 是 | 区域 |
 | `bucket` | 是 | 桶名 |
-| `objectKey` | 否 | 默认 `wangcai/records.json` |
+| `objectKey` | 否 | 远端**目录前缀**，默认 `wangcai` |
 | `accessKeyId` / `secretAccessKey` | 是 | 密钥 |
 | `forcePathStyle` | 否 | MinIO 等常为 `true` |
 | `sessionToken` | 否 | 临时凭证 |
 
+目录内由旺财自动生成：`records.json`（账本）、`revision.json`（版本）、`lock.json`（锁）。
+
 ## 同步与锁
 
-- 账本为整文件 JSON，含 `revision`（单调递增）
+- 账本为整文件 JSON；**数据版本**以独立 `revision.json` 为准（兼容旧整包内嵌 `revision`）
 - **读**：`remote > local` 时用远端覆盖本地；否则保持本地
 - **写**：`remote > local` 先拉远端再改；`remote <= local` 保留本地再改并上传（更新云端）
 - **push**：远端更新且无 `--force` → `CONFLICT`
 - **pull**：远端整包覆盖本地
-- 锁文件：账本路径 + `.lock`
+- 锁文件：`{folder}/lock.json`
 - `status.alignment`：`in_sync` | `pulled_remote` | `local_ahead` | `no_remote`
 
 ## 账户类型 `type`
 
-`cash` | `debitCard` | `creditCard` | `alipay` | `wechat` | `other`（以 CLI `--help` 为准）
+`cash` | `creditCard` | `debitCard` | `onlineAccount` | `investment` | `storedValueCard`（以 CLI `--help` 为准；旧值 `alipay`/`wechatPay`/`other`/`receivablePayable` → `onlineAccount`）。**应收/应付 = 借贷人**，用 `lenders.*` / CLI lenders，不是账户 type。
 
 ## 交易类型 `type`
 

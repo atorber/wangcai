@@ -17,12 +17,12 @@ class _CloudBackupSetupScreenState extends State<CloudBackupSetupScreen> {
   final _serverUrlController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _pathController = TextEditingController(text: '/wangcai/records.json');
+  final _pathController = TextEditingController(text: '/wangcai');
 
   final _endpointController = TextEditingController();
   final _regionController = TextEditingController(text: 'us-east-1');
   final _bucketController = TextEditingController();
-  final _objectKeyController = TextEditingController(text: 'wangcai/records.json');
+  final _objectKeyController = TextEditingController(text: 'wangcai');
   final _accessKeyController = TextEditingController();
   final _secretKeyController = TextEditingController();
   bool _forcePathStyle = true;
@@ -83,6 +83,10 @@ class _CloudBackupSetupScreenState extends State<CloudBackupSetupScreen> {
                   vertical: 24.0,
                 ),
                 children: [
+                  if (!CloudSyncService.isSupportedOnCurrentPlatform) ...[
+                    _buildWebUnsupportedBanner(context),
+                    const SizedBox(height: 16),
+                  ],
                   _buildHeaderSection(context),
                   const SizedBox(height: 24),
                   _buildProtocolSelector(context),
@@ -93,7 +97,9 @@ class _CloudBackupSetupScreenState extends State<CloudBackupSetupScreen> {
                     ..._buildS3Fields(context),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: _saveAndNext,
+                    onPressed: CloudSyncService.isSupportedOnCurrentPlatform
+                        ? _saveAndNext
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: AppColors.onPrimary,
@@ -121,6 +127,25 @@ class _CloudBackupSetupScreenState extends State<CloudBackupSetupScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildWebUnsupportedBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        CloudSyncService.unsupportedPlatformMessage,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.error,
+              height: 1.45,
+            ),
+      ),
     );
   }
 
@@ -223,13 +248,13 @@ class _CloudBackupSetupScreenState extends State<CloudBackupSetupScreen> {
       const SizedBox(height: 12),
       _buildInputField(
         context,
-        label: '远端文件路径',
-        hint: '例如: /wangcai/records.json',
+        label: '远端目录',
+        hint: '例如: /wangcai（应用自动生成目录内文件）',
         controller: _pathController,
       ),
       const SizedBox(height: 8),
       Text(
-        '确保 WebDAV 账号对目标路径有读写权限',
+        '目录内由旺财自动维护 records.json / revision.json / lock.json，无需指定到文件。',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: AppColors.secondary,
             ),
@@ -263,8 +288,8 @@ class _CloudBackupSetupScreenState extends State<CloudBackupSetupScreen> {
       const SizedBox(height: 12),
       _buildInputField(
         context,
-        label: 'Object Key',
-        hint: '例如: wangcai/records.json',
+        label: '对象目录前缀',
+        hint: '例如: wangcai（应用自动生成目录内文件）',
         controller: _objectKeyController,
       ),
       const SizedBox(height: 12),
@@ -370,14 +395,14 @@ class _CloudBackupSetupScreenState extends State<CloudBackupSetupScreen> {
       _serverUrlController.text = webdav.serverUrl;
       _usernameController.text = webdav.username;
       _passwordController.text = webdav.password;
-      _pathController.text = webdav.remotePath;
+      _pathController.text = webdav.folderPath;
     }
     final s3 = drafts.s3;
     if (s3 != null) {
       _endpointController.text = s3.endpoint;
       _regionController.text = s3.region;
       _bucketController.text = s3.bucket;
-      _objectKeyController.text = s3.objectKey;
+      _objectKeyController.text = s3.folderKey;
       _accessKeyController.text = s3.accessKeyId;
       _secretKeyController.text = s3.secretAccessKey;
       _forcePathStyle = s3.forcePathStyle;

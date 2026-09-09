@@ -4,7 +4,7 @@
   "endpoint": "https://s3.example.com",
   "region": "us-east-1",
   "bucket": "wangcai",
-  "objectKey": "wangcai/records.json",
+  "objectKey": "wangcai",
   "accessKeyId": "AKIA...",
   "secretAccessKey": "...",
   "forcePathStyle": true

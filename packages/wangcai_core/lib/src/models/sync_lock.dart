@@ -7,7 +7,6 @@ class SyncLock {
   });
 
   static const int defaultLeaseMs = 30000;
-  static const String fileSuffix = '.lock';
 
   final String ownerId;
   final DateTime acquiredAt;

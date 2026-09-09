@@ -1,10 +1,10 @@
 {
   "protocol": "s3",
-  "deviceId": "wc_cli_dev",
+  "deviceId": "wc_cli",
   "endpoint": "https://s3.example.com",
   "region": "us-east-1",
   "bucket": "wangcai",
-  "objectKey": "wangcai/records.json",
+  "objectKey": "wangcai",
   "accessKeyId": "AKIA...",
   "secretAccessKey": "...",
   "forcePathStyle": true

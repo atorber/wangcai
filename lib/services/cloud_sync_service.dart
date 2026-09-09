@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wangcai_core/wangcai_core.dart';
@@ -27,6 +28,22 @@ class CloudSyncService {
 
   static const _secureStorage = FlutterSecureStorage();
 
+  /// 浏览器受 CORS 限制，无法直连坚果云等第三方 WebDAV/S3。
+  static bool get isSupportedOnCurrentPlatform => !kIsWeb;
+
+  static const unsupportedPlatformMessage =
+      '当前为浏览器（Web）环境，受 CORS 限制无法直连坚果云等 WebDAV/S3。'
+      '请使用 Android / iOS / 桌面版 App，或本机 wangcai CLI。';
+
+  static void _ensurePlatformSupported() {
+    if (!isSupportedOnCurrentPlatform) {
+      throw const CloudSyncException(
+        unsupportedPlatformMessage,
+        code: 'UNSUPPORTED_PLATFORM',
+      );
+    }
+  }
+
   static Future<void> saveConfig(CloudSyncConfig config) async {
     if (!config.isValid) {
       throw const CloudSyncException('云备份配置不完整');
@@ -39,7 +56,7 @@ class CloudSyncService {
         final webdav = config.webdav!;
         await prefs.setString(_webdavServerUrlKey, webdav.serverUrl.trim());
         await prefs.setString(_webdavUsernameKey, webdav.username.trim());
-        await prefs.setString(_webdavRemotePathKey, webdav.remotePath.trim());
+        await prefs.setString(_webdavRemotePathKey, webdav.folderPath);
         await _secureStorage.write(
           key: _webdavPasswordKey,
           value: webdav.password,
@@ -51,7 +68,7 @@ class CloudSyncService {
         await prefs.setString(_s3EndpointKey, s3.endpoint.trim());
         await prefs.setString(_s3RegionKey, s3.region.trim());
         await prefs.setString(_s3BucketKey, s3.bucket.trim());
-        await prefs.setString(_s3ObjectKeyKey, s3.objectKey.trim());
+        await prefs.setString(_s3ObjectKeyKey, s3.folderKey);
         await prefs.setString(_s3AccessKeyIdKey, s3.accessKeyId.trim());
         await prefs.setBool(_s3ForcePathStyleKey, s3.forcePathStyle);
         await _secureStorage.write(
@@ -132,7 +149,7 @@ class CloudSyncService {
       endpoint: prefs.getString(_s3EndpointKey) ?? '',
       region: prefs.getString(_s3RegionKey) ?? 'us-east-1',
       bucket: prefs.getString(_s3BucketKey) ?? '',
-      objectKey: prefs.getString(_s3ObjectKeyKey) ?? 'wangcai/records.json',
+      objectKey: prefs.getString(_s3ObjectKeyKey) ?? 'wangcai',
       accessKeyId: prefs.getString(_s3AccessKeyIdKey) ?? '',
       secretAccessKey: await _secureStorage.read(key: _s3SecretKey) ?? '',
       forcePathStyle: prefs.getBool(_s3ForcePathStyleKey) ?? true,
@@ -191,6 +208,7 @@ class CloudSyncService {
   }
 
   static Future<SyncClient> createSyncClient(CloudSyncConfig config) async {
+    _ensurePlatformSupported();
     if (!config.isValid) {
       throw const CloudSyncException('云备份配置不完整');
     }
@@ -208,6 +226,7 @@ class CloudSyncService {
       store: store,
       ownerId: ownerId,
       ledgerPath: config.ledgerPath,
+      revisionPath: config.revisionPath,
       lockPath: config.lockPath,
     );
   }
@@ -259,11 +278,18 @@ class CloudSyncService {
   ) async {
     final client = await createSyncClient(config);
     final localRevision = await getLocalRevision();
+    final remoteRevision = await client.fetchRemoteRevision();
+    if (remoteRevision == null || remoteRevision <= localRevision) {
+      return null;
+    }
     final remote = await client.downloadBundle();
-    if (remote != null && remote.revision > localRevision) {
+    if (remote == null) {
+      return null;
+    }
+    if (remote.revision >= remoteRevision) {
       return remote;
     }
-    return null;
+    return remote.copyWith(revision: remoteRevision);
   }
 }
 

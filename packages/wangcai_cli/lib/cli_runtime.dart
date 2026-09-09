@@ -56,6 +56,7 @@ class CliRuntime {
       store: store,
       ownerId: ownerId,
       ledgerPath: config.ledgerPath,
+      revisionPath: config.revisionPath,
       lockPath: config.lockPath,
     );
 
@@ -119,7 +120,7 @@ class CliRuntime {
             serverUrl: json['serverUrl'] as String? ?? '',
             username: json['username'] as String? ?? '',
             password: json['password'] as String? ?? '',
-            remotePath: json['remotePath'] as String? ?? '/wangcai/records.json',
+            remotePath: json['remotePath'] as String? ?? '/wangcai',
           ),
         );
       case CloudSyncProtocol.s3:
@@ -129,7 +130,7 @@ class CliRuntime {
             endpoint: json['endpoint'] as String? ?? '',
             region: json['region'] as String? ?? 'us-east-1',
             bucket: json['bucket'] as String? ?? '',
-            objectKey: json['objectKey'] as String? ?? 'wangcai/records.json',
+            objectKey: json['objectKey'] as String? ?? 'wangcai',
             accessKeyId: json['accessKeyId'] as String? ?? '',
             secretAccessKey: json['secretAccessKey'] as String? ?? '',
             forcePathStyle: json['forcePathStyle'] as bool? ?? true,

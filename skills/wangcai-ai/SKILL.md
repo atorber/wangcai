@@ -46,7 +46,7 @@ chmod +x "$BIN" "$SKILL_ROOT/bin/wangcai-macos-arm64" 2>/dev/null || true
   "serverUrl": "https://dav.example.com/remote.php/dav/files/user",
   "username": "user",
   "password": "app-password",
-  "remotePath": "/wangcai/records.json"
+  "remotePath": "/wangcai"
 }
 ```
 
@@ -59,7 +59,7 @@ chmod +x "$BIN" "$SKILL_ROOT/bin/wangcai-macos-arm64" 2>/dev/null || true
   "endpoint": "https://s3.example.com",
   "region": "us-east-1",
   "bucket": "wangcai",
-  "objectKey": "wangcai/records.json",
+  "objectKey": "wangcai",
   "accessKeyId": "AKIA...",
   "secretAccessKey": "...",
   "forcePathStyle": true
@@ -81,7 +81,13 @@ chmod +x "$BIN" "$SKILL_ROOT/bin/wangcai-macos-arm64" 2>/dev/null || true
 | 写（add/update/delete/upsert/commit/run/push） | 加锁 → 拉远端 → 变更 → `revision++` → 推送 → 释锁 |
 | `LOCK_BUSY` | 提示稍后重试，勿绕过锁硬写 |
 
-远端账本默认路径 `/wangcai/records.json`（WebDAV）或 `wangcai/records.json`（S3）；锁文件为同路径加 `.lock`。
+用户只配置远端**目录**（默认 WebDAV `/wangcai`、S3 `wangcai`）。目录内由旺财自动维护：
+
+| 文件 | 用途 |
+|------|------|
+| `records.json` | 账本整包 |
+| `revision.json` | 独立数据版本（读对齐优先读此文件） |
+| `lock.json` | 写入租约锁 |
 
 ## 命令速查
 
@@ -109,7 +115,10 @@ wangcai tx delete --id <id>
 ```bash
 wangcai accounts list
 wangcai accounts add --name 建设银行 --type debitCard --balance 5000
+wangcai accounts update --account 支付宝 --balance 1200 --record-diff
 ```
+
+`--record-diff`：将「新余额 − 原余额」补记为收入（增加）或支出（减少）。
 
 ### 分类
 
@@ -157,6 +166,7 @@ wangcai stats --period month   # week|month|year
 | 用户意图 | 调用 |
 |----------|------|
 | 记一笔午餐 | `tx add`（先 `accounts list` / `categories list` 解析名称） |
+| 调整账户余额并补记差额 | `accounts update --account 支付宝 --balance 1200 --record-diff` |
 | 这个月花了多少 | `stats --period month` |
 | 设餐饮预算 | `budgets upsert --category 餐饮 --limit ...` |
 | 每月房租 | `recurring upsert`，必要时 `recurring run` |
