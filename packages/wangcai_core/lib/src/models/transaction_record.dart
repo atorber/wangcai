@@ -15,6 +15,65 @@ TransactionType transactionTypeFromName(String name) {
   }
 }
 
+/// 记账操作端（写入账单的客户端）。
+///
+/// JSON 值：`app` | `agent` | `import` | `recurring`；缺省/未知为 `unknown`。
+enum TransactionClient {
+  app,
+  agent,
+  csvImport,
+  recurring,
+  unknown,
+}
+
+TransactionClient transactionClientFromName(String? name) {
+  switch (name) {
+    case 'app':
+      return TransactionClient.app;
+    case 'agent':
+    case 'cli':
+    case 'skill':
+      return TransactionClient.agent;
+    case 'import':
+    case 'csvImport':
+      return TransactionClient.csvImport;
+    case 'recurring':
+      return TransactionClient.recurring;
+    default:
+      return TransactionClient.unknown;
+  }
+}
+
+String transactionClientToJson(TransactionClient client) {
+  switch (client) {
+    case TransactionClient.app:
+      return 'app';
+    case TransactionClient.agent:
+      return 'agent';
+    case TransactionClient.csvImport:
+      return 'import';
+    case TransactionClient.recurring:
+      return 'recurring';
+    case TransactionClient.unknown:
+      return 'unknown';
+  }
+}
+
+String transactionClientLabel(TransactionClient client) {
+  switch (client) {
+    case TransactionClient.app:
+      return 'App';
+    case TransactionClient.agent:
+      return 'Agent';
+    case TransactionClient.csvImport:
+      return '导入';
+    case TransactionClient.recurring:
+      return '周期';
+    case TransactionClient.unknown:
+      return '未知';
+  }
+}
+
 class TransactionRecord {
   const TransactionRecord({
     required this.id,
@@ -29,6 +88,7 @@ class TransactionRecord {
     this.lenderName,
     required this.date,
     this.note = '',
+    this.client = TransactionClient.unknown,
   });
 
   final String id;
@@ -43,6 +103,7 @@ class TransactionRecord {
   final String? lenderName;
   final DateTime date;
   final String note;
+  final TransactionClient client;
 
   Map<String, dynamic> toJson() {
     return {
@@ -58,6 +119,7 @@ class TransactionRecord {
       'lenderName': lenderName,
       'date': date.toIso8601String(),
       'note': note,
+      'client': transactionClientToJson(client),
     };
   }
 
@@ -75,6 +137,7 @@ class TransactionRecord {
       lenderName: json['lenderName'] as String?,
       date: DateTime.tryParse(json['date'] as String? ?? '') ?? DateTime.now(),
       note: json['note'] as String? ?? '',
+      client: transactionClientFromName(json['client'] as String?),
     );
   }
 }

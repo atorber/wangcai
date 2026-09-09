@@ -152,6 +152,7 @@ class TransactionProvider extends ChangeNotifier {
     String? lenderName,
     required DateTime date,
     String note = '',
+    TransactionClient client = TransactionClient.app,
   }) async {
     final record = TransactionRecord(
       id: '${DateTime.now().microsecondsSinceEpoch}',
@@ -166,6 +167,7 @@ class TransactionProvider extends ChangeNotifier {
       lenderName: lenderName,
       date: date,
       note: note,
+      client: client,
     );
     _transactions.insert(0, record);
     _markCacheDirty();
@@ -237,6 +239,7 @@ class TransactionProvider extends ChangeNotifier {
         lenderName: item.lenderName,
         date: item.date,
         note: item.note,
+        client: item.client,
       );
       changed = true;
     }

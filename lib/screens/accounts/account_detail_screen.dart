@@ -390,7 +390,7 @@ class AccountDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${record.date.year}-${record.date.month.toString().padLeft(2, '0')}-${record.date.day.toString().padLeft(2, '0')} ${record.date.hour.toString().padLeft(2, '0')}:${record.date.minute.toString().padLeft(2, '0')} • ${record.note.isEmpty ? '无备注' : record.note}',
+                    '${record.date.year}-${record.date.month.toString().padLeft(2, '0')}-${record.date.day.toString().padLeft(2, '0')} ${record.date.hour.toString().padLeft(2, '0')}:${record.date.minute.toString().padLeft(2, '0')} • ${transactionClientLabel(record.client)} • ${record.note.isEmpty ? '无备注' : record.note}',
                     style: Theme.of(context).textTheme.labelSmall?.copyWith(
                       color: AppColors.onSurfaceVariant,
                     ),

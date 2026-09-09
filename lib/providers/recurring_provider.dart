@@ -93,6 +93,7 @@ class RecurringProvider extends ChangeNotifier {
               accountName: rule.accountName,
               date: next,
               note: rule.note.isEmpty ? '周期：${rule.title}' : rule.note,
+              client: TransactionClient.recurring,
             ),
           ),
         );

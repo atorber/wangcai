@@ -4,7 +4,8 @@ import 'package:finance_app/providers/account_provider.dart';
 import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:provider/provider.dart';
-import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
+import 'package:wangcai_core/wangcai_core.dart'
+    show CloudSyncException, TransactionClient;
 
 /// 编辑账户（含余额）。可勾选将差额补记为收入/支出。
 Future<bool> showEditAccountDialog(
@@ -174,6 +175,7 @@ Future<bool> showEditAccountDialog(
           billingDay: account.isCreditCard ? billingDay : null,
           paymentDay: account.isCreditCard ? paymentDay : null,
           recordBalanceDifference: recordDifference,
+          client: TransactionClient.app,
         );
       },
     );

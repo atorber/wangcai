@@ -108,17 +108,34 @@ wangcai tx list --limit 20 --keyword 午餐
 wangcai tx delete --id <id>
 ```
 
-`--account` / `--transfer-account` / `--lender` 可用 **id 或名称**。
+`--account` / `--transfer-account` / `--lender` 可用 **id 或名称**。  
+`--client` 默认 `agent`（也可写 `app`/`import`/`recurring`），写入账单字段 `client` 标识操作端。
 
 ### 账户
+
+账户类型 `--type`：`cash` | `creditCard` | `debitCard` | `onlineAccount` | `investment` | `storedValueCard`
 
 ```bash
 wangcai accounts list
 wangcai accounts add --name 建设银行 --type debitCard --balance 5000
+wangcai accounts add --name 支付宝 --type onlineAccount --balance 0
 wangcai accounts update --account 支付宝 --balance 1200 --record-diff
+wangcai accounts delete --account 临时账户
 ```
 
 `--record-diff`：将「新余额 − 原余额」补记为收入（增加）或支出（减少）。
+
+### 应收/应付（借贷人）
+
+与账户类型无关，走 `lenders.*`；借出/借入记账用 `tx add --type lend|borrow --lender ...`。
+
+```bash
+wangcai lenders list
+wangcai lenders add --name 张三
+wangcai lenders update --lender 张三 --name 张三（同事）
+wangcai lenders delete --lender 张三
+wangcai tx add --type lend --amount 200 --account 现金 --lender 张三 --note 借出
+```
 
 ### 分类
 

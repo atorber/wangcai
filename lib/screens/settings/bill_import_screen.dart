@@ -7,7 +7,8 @@ import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException;
+import 'package:wangcai_core/wangcai_core.dart'
+    show CloudSyncException, TransactionClient;
 
 class BillImportScreen extends StatefulWidget {
   const BillImportScreen({super.key});
@@ -262,6 +263,7 @@ class _BillImportScreenState extends State<BillImportScreen> {
               accountId: accountId,
               date: row.date,
               note: row.note,
+              client: TransactionClient.csvImport,
             );
             imported++;
           }

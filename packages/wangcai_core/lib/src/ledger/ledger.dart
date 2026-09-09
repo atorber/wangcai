@@ -258,6 +258,7 @@ class Ledger {
     required DateTime date,
     String note = '',
     String? id,
+    TransactionClient client = TransactionClient.unknown,
   }) {
     if (amount <= 0) {
       throw const LedgerException('INVALID_PARAMS', '请输入合法金额');
@@ -305,6 +306,7 @@ class Ledger {
       lenderName: lenderName,
       date: date,
       note: note,
+      client: client,
     );
     _transactions.insert(0, record);
     _applyDelta(record, isRevert: false);
@@ -362,6 +364,7 @@ class Ledger {
         lenderName: item.lenderName,
         date: item.date,
         note: item.note,
+        client: item.client,
       );
     }
     for (var i = 0; i < _rules.length; i++) {
@@ -455,6 +458,7 @@ class Ledger {
     String adjustmentCategory = '余额调整',
     String adjustmentNote = '编辑账户余额补记',
     DateTime? adjustmentDate,
+    TransactionClient client = TransactionClient.unknown,
   }) {
     final index = _accounts.indexWhere((item) => item.id == id);
     if (index == -1) {
@@ -484,6 +488,7 @@ class Ledger {
           accountId: id,
           date: adjustmentDate ?? DateTime.now(),
           note: adjustmentNote,
+          client: client,
         );
       }
     }
@@ -530,6 +535,14 @@ class Ledger {
     );
     _lenders[index] = updated;
     return updated;
+  }
+
+  void deleteLender(String id) {
+    final linked = _transactions.any((item) => item.lenderId == id);
+    if (linked) {
+      throw const LedgerException('CONSTRAINT', '该应收/应付已有关联账单，无法删除');
+    }
+    _lenders.removeWhere((item) => item.id == id);
   }
 
   // --- categories / budgets / recurring ---
@@ -669,6 +682,7 @@ class Ledger {
               accountName: rule.accountName,
               date: next,
               note: rule.note.isEmpty ? '周期：${rule.title}' : rule.note,
+              client: TransactionClient.recurring,
             ),
           ),
         );

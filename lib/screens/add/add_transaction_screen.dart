@@ -8,7 +8,8 @@ import 'package:finance_app/services/cloud_ledger_bridge.dart';
 import 'package:finance_app/theme/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wangcai_core/wangcai_core.dart' show CloudSyncException, LedgerException;
+import 'package:wangcai_core/wangcai_core.dart'
+    show CloudSyncException, LedgerException, TransactionClient;
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key, this.initialRecord, this.onSaved});
@@ -697,9 +698,34 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     );
     if (picked != null) {
       setState(() {
-        _selectedDate = picked;
+        // DatePicker 只有日期；保留原时分秒，避免落到 00:00:00。
+        _selectedDate = DateTime(
+          picked.year,
+          picked.month,
+          picked.day,
+          _selectedDate.hour,
+          _selectedDate.minute,
+          _selectedDate.second,
+          _selectedDate.millisecond,
+          _selectedDate.microsecond,
+        );
       });
     }
+  }
+
+  /// 记一笔 Tab 常驻 IndexedStack，_selectedDate 可能过期。
+  /// 选「今天」时始终用当前时刻；历史日期保留所选日时分。
+  DateTime _resolveTransactionDate() {
+    final now = DateTime.now();
+    final selected = _selectedDate;
+    final isToday =
+        selected.year == now.year &&
+        selected.month == now.month &&
+        selected.day == now.day;
+    if (isToday) {
+      return now;
+    }
+    return selected;
   }
 
   Future<void> _saveTransaction() async {
@@ -786,6 +812,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     }
 
     setState(() => _saving = true);
+    final saveDate = _resolveTransactionDate();
     try {
       if (widget.initialRecord == null) {
         try {
@@ -799,8 +826,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 accountId: selectedAccount.id,
                 transferAccountId: transferAccountId,
                 lenderId: lenderId,
-                date: _selectedDate,
+                date: saveDate,
                 note: _noteController.text.trim(),
+                client: TransactionClient.app,
               );
             },
           );
@@ -855,8 +883,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         transferAccountName: transferAccountName,
         lenderId: lenderId,
         lenderName: lenderName,
-        date: _selectedDate,
+        date: saveDate,
         note: _noteController.text.trim(),
+        client: oldRecord.client == TransactionClient.unknown
+            ? TransactionClient.app
+            : oldRecord.client,
       );
       try {
         await CloudLedgerBridge.mutate(

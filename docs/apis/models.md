@@ -133,7 +133,8 @@
   "lenderId": null,
   "lenderName": null,
   "date": "2026-09-08T12:30:00.000",
-  "note": "午餐"
+  "note": "午餐",
+  "client": "app"
 }
 ```
 
@@ -148,6 +149,17 @@
 | `lenderId` / `lenderName` | string \| null | 借出/借入必填 | |
 | `date` | string | 是 | ISO-8601 |
 | `note` | string | 否 | 默认 `""` |
+| `client` | string | 否 | 操作端：`app` / `agent` / `import` / `recurring` / `unknown`（缺省按 `unknown`） |
+
+### TransactionClient
+
+| 值 | 中文 | 典型来源 |
+|----|------|----------|
+| `app` | App | Flutter App 记一笔 / 编辑账户补记 |
+| `agent` | Agent | Skill / CLI（`wangcai tx add` 默认） |
+| `import` | 导入 | 支付宝/微信 CSV |
+| `recurring` | 周期 | 周期账单自动入账 |
+| `unknown` | 未知 | 旧数据或缺字段 |
 
 ## TransactionCategory
 

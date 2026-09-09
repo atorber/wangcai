@@ -770,17 +770,18 @@ class _BillListScreenState extends State<BillListScreen> {
 
   String _subtitleForRecord(TransactionRecord record) {
     final datePart = _formatDate(record.date);
+    final clientPart = transactionClientLabel(record.client);
     switch (record.type) {
       case TransactionType.transfer:
         final toAccount = record.transferAccountName ?? '未选择转入账户';
-        return '$datePart • ${record.accountName} -> $toAccount';
+        return '$datePart • ${record.accountName} -> $toAccount • $clientPart';
       case TransactionType.lend:
       case TransactionType.borrow:
         final lender = record.lenderName ?? '未选择对方';
-        return '$datePart • ${record.accountName} • $lender';
+        return '$datePart • ${record.accountName} • $lender • $clientPart';
       case TransactionType.expense:
       case TransactionType.income:
-        return '$datePart • ${record.accountName}';
+        return '$datePart • ${record.accountName} • $clientPart';
     }
   }
 

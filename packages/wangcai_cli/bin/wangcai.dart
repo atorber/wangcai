@@ -38,7 +38,13 @@ Future<void> main(List<String> arguments) async {
     ..addOption('note', defaultsTo: '')
     ..addOption('date', help: 'ISO-8601，默认现在')
     ..addOption('transfer-account')
-    ..addOption('lender');
+    ..addOption('lender')
+    ..addOption(
+      'client',
+      defaultsTo: 'agent',
+      allowed: const ['app', 'agent', 'import', 'recurring', 'cli', 'skill'],
+      help: '操作端：app|agent（默认 agent）|import|recurring',
+    );
   final txList = tx.addCommand('list');
   common(txList);
   txList
@@ -80,6 +86,30 @@ Future<void> main(List<String> arguments) async {
     ..addOption('credit-limit')
     ..addOption('billing-day')
     ..addOption('payment-day');
+  final accountsDelete = accounts.addCommand('delete');
+  common(accountsDelete);
+  accountsDelete
+    ..addOption('id', help: '账户 id 或名称')
+    ..addOption('account', help: '账户 id 或名称（与 --id 二选一）');
+
+  // 应收/应付 = Lender（不是 AccountType）
+  final lenders = parser.addCommand('lenders');
+  common(lenders.addCommand('list'));
+  final lendersAdd = lenders.addCommand('add');
+  common(lendersAdd);
+  lendersAdd.addOption('name', mandatory: true, help: '对方名称');
+  final lendersUpdate = lenders.addCommand('update');
+  common(lendersUpdate);
+  lendersUpdate
+    ..addOption('id', help: '应收/应付 id 或名称')
+    ..addOption('lender', help: '应收/应付 id 或名称（与 --id 二选一）')
+    ..addOption('name', help: '新名称')
+    ..addOption('balance', help: '新余额，默认保持不变');
+  final lendersDelete = lenders.addCommand('delete');
+  common(lendersDelete);
+  lendersDelete
+    ..addOption('id', help: '应收/应付 id 或名称')
+    ..addOption('lender', help: '应收/应付 id 或名称（与 --id 二选一）');
 
   final categories = parser.addCommand('categories');
   common(categories.addCommand('list'));
@@ -196,6 +226,9 @@ Future<void> main(List<String> arguments) async {
       case 'accounts':
         await _cmdAccounts(runtime, command);
         break;
+      case 'lenders':
+        await _cmdLenders(runtime, command);
+        break;
       case 'categories':
         await _cmdCategories(runtime, command);
         break;
@@ -228,7 +261,8 @@ String _usage(ArgParser parser) => '''
 
 同步: status | pull | push [--force]
 账单: tx add|list|delete
-账户: accounts list|add|update
+账户: accounts list|add|update|delete
+应收/应付: lenders list|add|update|delete
 分类: categories list|add|update|delete
 预算: budgets list|upsert|delete
 周期: recurring list|upsert|delete|run
@@ -339,6 +373,7 @@ Future<void> _cmdTx(CliRuntime runtime, ArgResults command) async {
           lenderId: lenderId,
           date: date,
           note: sub['note'] as String? ?? '',
+          client: transactionClientFromName(sub['client'] as String? ?? 'agent'),
         );
       });
       await runtime.saveLocal();
@@ -442,6 +477,7 @@ Future<void> _cmdAccounts(CliRuntime runtime, ArgResults command) async {
           billingDay: billingDay ?? current.billingDay,
           paymentDay: paymentDay ?? current.paymentDay,
           recordBalanceDifference: recordDiff,
+          client: TransactionClient.agent,
         );
       });
       await runtime.saveLocal();
@@ -450,6 +486,94 @@ Future<void> _cmdAccounts(CliRuntime runtime, ArgResults command) async {
         'recordDiff': recordDiff,
         'revision': runtime.ledger.revision,
       });
+    case 'delete':
+      final key = (sub['id'] as String?)?.trim().isNotEmpty == true
+          ? sub['id'] as String
+          : sub['account'] as String?;
+      if (key == null || key.trim().isEmpty) {
+        _fail('请提供 --id 或 --account');
+        return;
+      }
+      final deletedId = await runtime.client.writeTransaction(runtime.ledger, (
+        ledger,
+      ) async {
+        final current = _resolveAccount(ledger, key);
+        ledger.deleteAccount(current.id);
+        return current.id;
+      });
+      await runtime.saveLocal();
+      _ok({'deletedId': deletedId, 'revision': runtime.ledger.revision});
+    default:
+      _fail('未知子命令：${sub.name}');
+  }
+}
+
+Future<void> _cmdLenders(CliRuntime runtime, ArgResults command) async {
+  final sub = command.command;
+  if (sub == null) {
+    _fail('请使用 wangcai lenders list|add|update');
+    return;
+  }
+  switch (sub.name) {
+    case 'list':
+      await runtime.ensureFreshRead();
+      _ok({
+        'revision': runtime.ledger.revision,
+        'lenders': runtime.ledger.lenders
+            .map((e) => e.toJson())
+            .toList(growable: false),
+      });
+    case 'add':
+      final lender = await runtime.client.writeTransaction(runtime.ledger, (
+        ledger,
+      ) async {
+        return ledger.createLender(sub['name'] as String);
+      });
+      await runtime.saveLocal();
+      _ok({'lender': lender.toJson(), 'revision': runtime.ledger.revision});
+    case 'update':
+      final key = (sub['id'] as String?)?.trim().isNotEmpty == true
+          ? sub['id'] as String
+          : sub['lender'] as String?;
+      if (key == null || key.trim().isEmpty) {
+        _fail('请提供 --id 或 --lender');
+        return;
+      }
+      final nameOpt = (sub['name'] as String?)?.trim();
+      final balanceOpt = double.tryParse(sub['balance'] as String? ?? '');
+      if ((nameOpt == null || nameOpt.isEmpty) && balanceOpt == null) {
+        _fail('请提供 --name 和/或 --balance');
+        return;
+      }
+      final lender = await runtime.client.writeTransaction(runtime.ledger, (
+        ledger,
+      ) async {
+        final current = _resolveLender(ledger, key);
+        return ledger.updateLender(
+          id: current.id,
+          name: (nameOpt == null || nameOpt.isEmpty) ? current.name : nameOpt,
+          balance: balanceOpt ?? current.balance,
+        );
+      });
+      await runtime.saveLocal();
+      _ok({'lender': lender.toJson(), 'revision': runtime.ledger.revision});
+    case 'delete':
+      final key = (sub['id'] as String?)?.trim().isNotEmpty == true
+          ? sub['id'] as String
+          : sub['lender'] as String?;
+      if (key == null || key.trim().isEmpty) {
+        _fail('请提供 --id 或 --lender');
+        return;
+      }
+      final deletedId = await runtime.client.writeTransaction(runtime.ledger, (
+        ledger,
+      ) async {
+        final current = _resolveLender(ledger, key);
+        ledger.deleteLender(current.id);
+        return current.id;
+      });
+      await runtime.saveLocal();
+      _ok({'deletedId': deletedId, 'revision': runtime.ledger.revision});
     default:
       _fail('未知子命令：${sub.name}');
   }
@@ -707,6 +831,7 @@ Future<void> _cmdImport(CliRuntime runtime, ArgResults command) async {
             accountId: account.id,
             date: row.date,
             note: row.note,
+            client: TransactionClient.csvImport,
           );
           count++;
         }

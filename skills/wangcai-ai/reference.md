@@ -60,6 +60,11 @@
 
 `expense` | `income` | `transfer` | `lend` | `borrow`
 
+## 操作端 `client`
+
+`app` | `agent` | `import` | `recurring` | `unknown`  
+CLI `tx add` 默认 `agent`；App 记一笔写 `app`；CSV 导入写 `import`；周期入账写 `recurring`。旧数据缺字段按 `unknown`。
+
 ## 分类图标 `icon`
 
 `food` | `transport` | `shopping` | `movie` | `medical` | `grocery` | `bill` | `other`
@@ -83,7 +88,8 @@
 |------|------|
 | `status` / `pull` / `push` | 读对齐 / 拉 / 推 |
 | `tx add\|list\|delete` | 写 / 读 / 写 |
-| `accounts list\|add` | 读 / 写 |
+| `accounts list\|add\|update\|delete` | 读 / 写 |
+| `lenders list\|add\|update\|delete` | 读 / 写（应收/应付） |
 | `categories list\|add\|update\|delete` | 读 / 写 |
 | `budgets list\|upsert\|delete` | 读 / 写 |
 | `recurring list\|upsert\|delete\|run` | 读 / 写 |
